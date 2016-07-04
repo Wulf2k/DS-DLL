@@ -27,8 +27,15 @@ DLLEXPORT void __cdecl  hotkeyThread(void*);
 
 BOOL WINAPI OnConsoleSignal(DWORD dwCtrlType);
 DWORD pGlobalChainD3Device = NULL;
+LPDIRECT3DDEVICE9 pD3dDevice;
+D3DVIEWPORT9 d3dViewport;
+LPD3DXFONT gFont;
+LPD3DXFONT giFont;
+
 
 typedef HRESULT(WINAPI* tBeginScene)(LPDIRECT3DDEVICE9 pDevice);
+typedef HRESULT(WINAPI* tColorFill)(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
+typedef HRESULT(WINAPI* tCreateRenderTarget)(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle);
 typedef HRESULT(WINAPI* tCreateTexture)(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHAndle);
 typedef HRESULT(WINAPI* tCreateVertexBuffer)(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9 **ppVertexBuffer, HANDLE *pSharedHandle);
 typedef HRESULT(WINAPI* tDrawIndexedPrimitive)(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinIndex, UINT NumVertices, UINT StartIndex, UINT PrimitiveCount);
@@ -44,8 +51,32 @@ typedef HRESULT(WINAPI* tSetLight)(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLI
 typedef HRESULT(WINAPI* tSetRenderState)(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value);
 typedef HRESULT(WINAPI* tSetStreamSource)(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 *pStreamData, UINT OffsetInBytes, UINT Stride);
 typedef HRESULT(WINAPI* tSetTexture)(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
+typedef HRESULT(WINAPI* tSetViewport)(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport);
+
+
+HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice);
+HRESULT WINAPI hColorFill(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
+HRESULT WINAPI hCreateRenderTarget(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle);
+HRESULT WINAPI hCreateTexture(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHAndle);
+HRESULT WINAPI hCreateVertexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9 **ppVertexBuffer, HANDLE *pSharedHandle);
+HRESULT WINAPI hDrawIndexedPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinIndex, UINT NumVertices, UINT StartIndex, UINT PrimitiveCount);
+HRESULT WINAPI hDrawIndexedPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertices, UINT PrimitiveCount, void *pIndexData, D3DFORMAT IndexDataFormat, void *pVertexStreamZeroData, UINT VertexStreamZeroStride);
+HRESULT WINAPI hDrawPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE pPrimativeType, UINT startVertex, UINT primitiveCount);
+HRESULT WINAPI hDrawPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE pPrimitiveType, UINT primitiveCount, void *pVertexStreamZeroData, UINT VertexStreamZeroStride);
+HRESULT WINAPI hEndScene(LPDIRECT3DDEVICE9 pDevice);
+HRESULT WINAPI hGetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
+HRESULT WINAPI hGetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 **ppStreamData, UINT *pOffsetInBytes, UINT *pStride);
+HRESULT WINAPI hLightEnable(LPDIRECT3DDEVICE9 pDevice, DWORD LightIndex, BOOL bEnable);
+HRESULT WINAPI hSetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
+HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value);
+HRESULT WINAPI hSetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 *pStreamData, UINT OffsetInBytes, UINT Stride);
+HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
+HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport);
+
 
 tBeginScene oBeginScene = NULL;
+tColorFill oColorFill = NULL;
+tCreateRenderTarget oCreateRenderTarget = NULL;
 tCreateTexture oCreateTexture = NULL;
 tCreateVertexBuffer oCreateVertexBuffer = NULL;
 tDrawIndexedPrimitive oDrawIndexedPrimitive = NULL;
@@ -61,46 +92,14 @@ tSetLight oSetLight = NULL;
 tSetRenderState oSetRenderState = NULL;
 tSetStreamSource oSetStreamSource = NULL;
 tSetTexture oSetTexture = NULL;
-
-HANDLE hHotkeyThread;
-
-
-LPDIRECT3DDEVICE9 pD3dDevice;
-D3DVIEWPORT9 d3dViewport;       // Resolution
-LPD3DXFONT gFont;
-LPD3DXFONT giFont;
-
-// Pointer Math
-#define ADDPTR(ptr, add) PVOID((PBYTE(ptr) + size_t(add)))
-#define SUBPTR(ptr, add) PVOID((PBYTE(ptr) - size_t(add)))
-#define DEREF(ptr, add, type) *static_cast<type*>(ADDPTR(ptr,add))
-
-#define dx_endscene 0
-#define dx_reset 1
-
-#define ALIGN_TOP 1
-#define ALIGN_LEFT 2
-#define ALIGN_RIGHT 3
-#define ALIGN_BOTTOM 4
-#define ALIGN_CENTER 5
-
-#define FONT_SIZE_1080 18
-#define FONT_SIZE_720 18
-#define FONT_SPACING_1080 19
-#define FONT_SPACING_720 19
-
-#define C_BLACK D3DCOLOR_RGBA(0,0,0,255)
-#define C_WHITE D3DCOLOR_RGBA(255,255,255,255)
-#define C_LIGHTGRAY D3DCOLOR_RGBA(235,235,235,255)
-#define C_DARKGRAY D3DCOLOR_RGBA(100,100,100,255)
-#define C_TRANSBLACK D3DCOLOR_RGBA(0, 0, 0, 100)
-#define C_TRANSGRAY D3DCOLOR_RGBA(128, 128, 128, 128)
-
+tSetViewport oSetViewport = NULL;
 
 
 struct sDXFunctions
 {
 	DWORD BeginSceneAddress;
+	DWORD ColorFillAddress;
+	DWORD CreateRenderTargetAddress;
 	DWORD CreateTextureAddress;
 	DWORD CreateVertexBufferAddress;
 	DWORD DrawIndexedPrimitiveAddress;
@@ -116,6 +115,7 @@ struct sDXFunctions
 	DWORD SetRenderStateAddress;
 	DWORD SetStreamSourceAddress;
 	DWORD SetTextureAddress;
+	DWORD SetViewportAddress;
 };
 sDXFunctions DXFunctions;
 
@@ -241,6 +241,48 @@ enum DXVTable
 	DeletePatch, // 117
 	CreateQuery // 118
 };
+
+
+HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32);
+
+
+
+
+
+HANDLE hHotkeyThread;
+
+
+
+
+// Pointer Math
+#define ADDPTR(ptr, add) PVOID((PBYTE(ptr) + size_t(add)))
+#define SUBPTR(ptr, add) PVOID((PBYTE(ptr) - size_t(add)))
+#define DEREF(ptr, add, type) *static_cast<type*>(ADDPTR(ptr,add))
+
+#define dx_endscene 0
+#define dx_reset 1
+
+#define ALIGN_TOP 1
+#define ALIGN_LEFT 2
+#define ALIGN_RIGHT 3
+#define ALIGN_BOTTOM 4
+#define ALIGN_CENTER 5
+
+#define FONT_SIZE_1080 18
+#define FONT_SIZE_720 18
+#define FONT_SPACING_1080 19
+#define FONT_SPACING_720 19
+
+#define C_BLACK D3DCOLOR_RGBA(0,0,0,255)
+#define C_WHITE D3DCOLOR_RGBA(255,255,255,255)
+#define C_LIGHTGRAY D3DCOLOR_RGBA(235,235,235,255)
+#define C_DARKGRAY D3DCOLOR_RGBA(100,100,100,255)
+#define C_TRANSBLACK D3DCOLOR_RGBA(0, 0, 0, 100)
+#define C_TRANSGRAY D3DCOLOR_RGBA(128, 128, 128, 128)
+
+
+
+
 struct charPos
 {
 	unsigned int unk1;
@@ -282,23 +324,9 @@ struct LoadedCreatures
 };
 
 
-HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice);
-HRESULT WINAPI hCreateTexture(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHAndle);
-HRESULT WINAPI hCreateVertexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9 **ppVertexBuffer, HANDLE *pSharedHandle);
-HRESULT WINAPI hDrawIndexedPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinIndex, UINT NumVertices, UINT StartIndex, UINT PrimitiveCount);
-HRESULT WINAPI hDrawIndexedPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertices, UINT PrimitiveCount, void *pIndexData, D3DFORMAT IndexDataFormat, void *pVertexStreamZeroData, UINT VertexStreamZeroStride);
-HRESULT WINAPI hDrawPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE pPrimativeType, UINT startVertex, UINT primitiveCount);
-HRESULT WINAPI hDrawPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE pPrimitiveType, UINT primitiveCount, void *pVertexStreamZeroData, UINT VertexStreamZeroStride);
-HRESULT WINAPI hEndScene(LPDIRECT3DDEVICE9 pDevice);
-HRESULT WINAPI hGetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
-HRESULT WINAPI hGetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 **ppStreamData, UINT *pOffsetInBytes, UINT *pStride);
-HRESULT WINAPI hLightEnable(LPDIRECT3DDEVICE9 pDevice, DWORD LightIndex, BOOL bEnable);
-HRESULT WINAPI hSetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
-HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value);
-HRESULT WINAPI hSetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 *pStreamData, UINT OffsetInBytes, UINT Stride);
-HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
 
-HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32);
+
+
 
 void initDXFunctions();
 
@@ -505,6 +533,22 @@ HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice)
 
 	HRESULT tmp;
 	tmp = oBeginScene(pDevice);
+	return tmp;
+}
+HRESULT WINAPI hColorFill(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color)
+{
+	//printf("ColorFill called.\n");
+
+	HRESULT tmp;
+	tmp = oColorFill(pDevice, pSurface, pRect, color);
+	return tmp;
+}
+HRESULT WINAPI hCreateRenderTarget(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle)
+{
+	//printf("CreateRenderTarget called.\n");
+
+	HRESULT tmp;
+	tmp = oCreateRenderTarget(pDevice, Width, Height, Format, MultiSample, MultisampleQuality, Lockable, ppSurface, pSharedHandle);
 	return tmp;
 }
 HRESULT WINAPI hCreateTexture(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHAndle)
@@ -716,12 +760,23 @@ HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBa
 	tmp = oSetTexture(pDevice, Sampler, pTexture);
 	return tmp;
 }
+HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
+{
+	//printf("SetViewport called.\n");
+
+	HRESULT tmp;
+	tmp = oSetViewport(pDevice, pViewport);
+	return tmp;
+}
+
 
 void initDXFunctions()
 {
 	DWORD* pVTable = (DWORD*)pD3dDevice;
 	pVTable = (DWORD*)pVTable[0];
 	DXFunctions.BeginSceneAddress = pVTable[DXVTable::BeginScene];
+	DXFunctions.ColorFillAddress = pVTable[DXVTable::ColorFill];
+	DXFunctions.CreateRenderTargetAddress = pVTable[DXVTable::CreateRenderTarget];
 	DXFunctions.CreateTextureAddress = pVTable[DXVTable::CreateTexture];
 	DXFunctions.CreateVertexBufferAddress = pVTable[DXVTable::CreateVertexBuffer];
 	DXFunctions.DrawIndexedPrimitiveAddress = pVTable[DXVTable::DrawIndexedPrimitive];
@@ -737,7 +792,7 @@ void initDXFunctions()
 	DXFunctions.SetRenderStateAddress = pVTable[DXVTable::SetRenderState];
 	DXFunctions.SetStreamSourceAddress = pVTable[DXVTable::SetStreamSource];
 	DXFunctions.SetTextureAddress = pVTable[DXVTable::SetTexture];
-
+	DXFunctions.SetViewportAddress = pVTable[DXVTable::SetViewport];
 }
 
 DLLEXPORT void __cdecl Start(void*)
@@ -766,6 +821,8 @@ DWORD ModuleCheckingThread()
 		return -1;
 
 	*(PDWORD)&oBeginScene = (DWORD)DXFunctions.BeginSceneAddress;
+	*(PDWORD)&oColorFill = (DWORD)DXFunctions.ColorFillAddress;
+	*(PDWORD)&oCreateRenderTarget = (DWORD)DXFunctions.CreateRenderTargetAddress;
 	*(PDWORD)&oCreateTexture = (DWORD)DXFunctions.CreateTextureAddress;
 	*(PDWORD)&oCreateVertexBuffer = (DWORD)DXFunctions.CreateVertexBufferAddress;
 	*(PDWORD)&oDrawIndexedPrimitive = (DWORD)DXFunctions.DrawIndexedPrimitiveAddress;
@@ -787,6 +844,18 @@ DWORD ModuleCheckingThread()
 	if (MH_CreateHook((void*)DXFunctions.BeginSceneAddress, &hBeginScene, reinterpret_cast<void**>(&oBeginScene)))
 		return -1;
 	if (MH_EnableHook((void*)DXFunctions.BeginSceneAddress) != MH_OK)
+		return -1;
+
+
+	if (MH_CreateHook((void*)DXFunctions.ColorFillAddress, &hColorFill, reinterpret_cast<void**>(&oColorFill)))
+		return -1;
+	if (MH_EnableHook((void*)DXFunctions.ColorFillAddress) != MH_OK)
+		return -1;
+
+
+	if (MH_CreateHook((void*)DXFunctions.CreateRenderTargetAddress, &hCreateRenderTarget, reinterpret_cast<void**>(&oCreateRenderTarget)))
+		return -1;
+	if (MH_EnableHook((void*)DXFunctions.CreateRenderTargetAddress) != MH_OK)
 		return -1;
 
 
@@ -882,27 +951,6 @@ DWORD ModuleCheckingThread()
 
 	return 0;
 }
-HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32)
-{
-	if (FAILED(pD3Ddev->CreateTexture(8, 8, 1, 0, D3DFMT_A4R4G4B4, D3DPOOL_MANAGED, ppD3Dtex, NULL)))
-		return E_FAIL;
-
-	WORD colour16 = ((WORD)((colour32 >> 28) & 0xF) << 12)
-		| (WORD)(((colour32 >> 20) & 0xF) << 8)
-		| (WORD)(((colour32 >> 12) & 0xF) << 4)
-		| (WORD)(((colour32 >> 4) & 0xF) << 0);
-
-	D3DLOCKED_RECT d3dlr;
-	(*ppD3Dtex)->LockRect(0, &d3dlr, 0, 0);
-	WORD *pDst16 = (WORD*)d3dlr.pBits;
-
-	for (int xy = 0; xy < 8 * 8; xy++)
-		*pDst16++ = colour16;
-
-	(*ppD3Dtex)->UnlockRect(0);
-
-	return S_OK;
-}
 
 
 void Initialize()
@@ -930,83 +978,6 @@ void Initialize()
 void Cleanup()
 {
 	MH_DisableHook(MH_ALL_HOOKS);
-
-
-	if (MH_RemoveHook((void*)DXFunctions.BeginSceneAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for BeginSceneAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.CreateTextureAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for CreateTextureAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.CreateVertexBufferAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for CreateVertexBufferAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.DrawIndexedPrimitiveUPAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for DrawIndexedPrimitiveUPAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.DrawPrimitiveAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for DrawPrimitiveAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.DrawPrimitiveUPAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for DrawPrimitiveUPAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.EndSceneAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for EndSceneAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.GetLightAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for GetLightAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.GetStreamSourceAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for GetStreamSourceAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.LightEnableAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for LightEnableAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.ResetAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for ResetAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.SetLightAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for SetLightAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.SetRenderStateAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for SetRenderStateAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.SetStreamSourceAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for SetTextureAddress\n");
-		return;
-	}
-	if (MH_RemoveHook((void*)DXFunctions.SetTextureAddress) != MH_OK)
-	{
-		printf("Error: Could not remove the hook for SetTextureAddress\n");
-		return;
-	}
 }
 void Run()
 {
@@ -1023,6 +994,29 @@ void Run()
 		Sleep(33);
 	}
 }
+
+HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32)
+{
+	if (FAILED(pD3Ddev->CreateTexture(8, 8, 1, 0, D3DFMT_A4R4G4B4, D3DPOOL_MANAGED, ppD3Dtex, NULL)))
+		return E_FAIL;
+
+	WORD colour16 = ((WORD)((colour32 >> 28) & 0xF) << 12)
+		| (WORD)(((colour32 >> 20) & 0xF) << 8)
+		| (WORD)(((colour32 >> 12) & 0xF) << 4)
+		| (WORD)(((colour32 >> 4) & 0xF) << 0);
+
+	D3DLOCKED_RECT d3dlr;
+	(*ppD3Dtex)->LockRect(0, &d3dlr, 0, 0);
+	WORD *pDst16 = (WORD*)d3dlr.pBits;
+
+	for (int xy = 0; xy < 8 * 8; xy++)
+		*pDst16++ = colour16;
+
+	(*ppD3Dtex)->UnlockRect(0);
+
+	return S_OK;
+}
+
 
 BOOL WINAPI OnConsoleSignal(DWORD dwCtrlType) {
 
