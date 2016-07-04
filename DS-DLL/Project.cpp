@@ -298,8 +298,10 @@ HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pSt
 HRESULT WINAPI hSetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 *pStreamData, UINT OffsetInBytes, UINT Stride);
 HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
 
-void initDXFunctions();
 HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32);
+
+void initDXFunctions();
+
 
 int fontSize = FONT_SIZE_1080;
 int fontLineSpacing = FONT_SPACING_1080;
@@ -307,7 +309,6 @@ bool bRunning = false;
 bool gVisible = true;
 
 bool wireframe = false;
-
 bool debugEXE = false;
 
 
@@ -510,11 +511,9 @@ HRESULT WINAPI hCreateTexture(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height
 {
 	//printf("CreateTexture called.  ppTexture:  %p\n", ppTexture);
 
-
 	HRESULT tmp;
 	tmp = oCreateTexture(pDevice, Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHAndle);
 	return tmp;
-
 }
 HRESULT WINAPI hCreateVertexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9 **ppVertexBuffer, HANDLE *pSharedHandle)
 {
@@ -526,36 +525,34 @@ HRESULT WINAPI hCreateVertexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD
 }
 HRESULT WINAPI hDrawIndexedPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinIndex, UINT NumVertices, UINT StartIndex, UINT PrimitiveCount)
 {
-	//printf("DrawIndexedPrimitive Called. Type: %d, BaseVert: %d, MinIndex: %d, NumVert: %d, StartIndex: %d, PrimCount: %d\n", Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
-
-
-
-
-	if (wireframe)
-		pDevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-
+	//printf("DrawIndexedPrimitive called. Type: %d, BaseVert: %d, MinIndex: %d, NumVert: %d, StartIndex: %d, PrimCount: %d\n", Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
 
 	HRESULT tmp;
 
-	tmp = oDrawIndexedPrimitive(pDevice, Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
-	
 	if (wireframe)
+	{
+		pDevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+		tmp = oDrawIndexedPrimitive(pDevice, Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
 		pDevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
-	
+	}
+	else
+	{
+		tmp = oDrawIndexedPrimitive(pDevice, Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
+	}
 
 	return tmp;
-	
 }
 HRESULT WINAPI hDrawIndexedPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertices, UINT PrimitiveCount, void *pIndexData, D3DFORMAT IndexDataFormat, void *pVertexStreamZeroData, UINT VertexStreamZeroStride) 
 {
-	//printf("DrawIndexedPrimitiveUP Called.\n");
-	//pD3dDevice->SetTexture(0, texBlue);
-	return oDrawIndexedPrimitiveUP(pDevice, PrimitiveType, MinVertexIndex, NumVertices, PrimitiveCount, pIndexData, IndexDataFormat, pVertexStreamZeroData, VertexStreamZeroStride);
+	//printf("DrawIndexedPrimitiveUP called.\n");
+	
+	HRESULT tmp;
+	tmp = oDrawIndexedPrimitiveUP(pDevice, PrimitiveType, MinVertexIndex, NumVertices, PrimitiveCount, pIndexData, IndexDataFormat, pVertexStreamZeroData, VertexStreamZeroStride);
+	return tmp;
 }
 HRESULT WINAPI hDrawPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE primitiveType, UINT startVertex, UINT primitiveCount)
 {
-	//printf("DrawPrimitive Called.\n");
-	//pD3dDevice->SetTexture(0, texBlue);
+	//printf("DrawPrimitive called.\n");
 
 	HRESULT tmp;
 	tmp = oDrawPrimitive(pDevice, primitiveType, startVertex, primitiveCount);
@@ -563,13 +560,15 @@ HRESULT WINAPI hDrawPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE primit
 }
 HRESULT WINAPI hDrawPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE primitiveType, UINT primitiveCount, void *pVertexStreamZeroData, UINT VertexStreamZeroStride)
 {
-	//printf("DrawPrimitiveUP Called.\n");
-	//pD3dDevice->SetTexture(0, texBlue);
-	return oDrawPrimitiveUP(pDevice, primitiveType, primitiveCount, pVertexStreamZeroData, VertexStreamZeroStride);
+	//printf("DrawPrimitiveUP called.\n");
+
+	HRESULT tmp;
+	tmp = oDrawPrimitiveUP(pDevice, primitiveType, primitiveCount, pVertexStreamZeroData, VertexStreamZeroStride);
+	return tmp;
 }
 HRESULT WINAPI hEndScene(LPDIRECT3DDEVICE9 pDevice)
 {
-
+	//printf("EndScene called.\n");
 
 	if (!gVisible) return oEndScene(pDevice);
 
@@ -582,8 +581,9 @@ HRESULT WINAPI hEndScene(LPDIRECT3DDEVICE9 pDevice)
 
 	drawStuff();
 
-
-	return oEndScene(pDevice);
+	HRESULT tmp;
+	tmp = oEndScene(pDevice);
+	return tmp;
 }
 HRESULT WINAPI hGetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight)
 {
@@ -638,8 +638,6 @@ HRESULT WINAPI hSetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLig
 HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value)
 {
 	//printf("hSetRenderState() called.\n");
-
-
 
 	if (pState == D3DRS_ALPHABLENDENABLE) {
 		//printf("pState: %d\n", pState);
@@ -698,7 +696,6 @@ HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pSt
 	}
 
 
-
 	HRESULT tmp;
 	tmp = oSetRenderState(pDevice, pState, value);
 	return tmp;
@@ -714,6 +711,7 @@ HRESULT WINAPI hSetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, ID
 HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture)
 {
 	//printf("hSetTexture() called.  %d, %p\n", Sampler, &pTexture);
+
 	HRESULT tmp;
 	tmp = oSetTexture(pDevice, Sampler, pTexture);
 	return tmp;
@@ -1077,7 +1075,7 @@ DLLEXPORT void __cdecl hotkeyThread(void*)
 		HWND hforegroundWnd = GetForegroundWindow();
 		HWND hDarkSouls = FindWindow(NULL, L"DARK SOULS");
 
-		if ((hforegroundWnd == hDarkSouls) || (hDarkSouls == NULL))  // if the foreground window is "Dark Souls II" or fore whatever reason the window can't be found
+		if ((hforegroundWnd == hDarkSouls) || (hDarkSouls == NULL))
 		{
 			
 			hk_Enter = GetKeyState(0x0D);
