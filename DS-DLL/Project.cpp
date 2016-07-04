@@ -32,6 +32,48 @@ D3DVIEWPORT9 d3dViewport;
 LPD3DXFONT gFont;
 LPD3DXFONT giFont;
 
+HANDLE hHotkeyThread;
+HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32);
+void hook(DWORD Target, void* pDetour);
+bool CreateDefaultFont();
+void drawStuff();
+
+// Pointer Math
+#define ADDPTR(ptr, add) PVOID((PBYTE(ptr) + size_t(add)))
+#define SUBPTR(ptr, add) PVOID((PBYTE(ptr) - size_t(add)))
+#define DEREF(ptr, add, type) *static_cast<type*>(ADDPTR(ptr,add))
+
+#define dx_endscene 0
+#define dx_reset 1
+
+#define ALIGN_TOP 1
+#define ALIGN_LEFT 2
+#define ALIGN_RIGHT 3
+#define ALIGN_BOTTOM 4
+#define ALIGN_CENTER 5
+
+#define FONT_SIZE_1080 18
+#define FONT_SIZE_720 18
+#define FONT_SPACING_1080 19
+#define FONT_SPACING_720 19
+
+#define C_BLACK D3DCOLOR_RGBA(0,0,0,255)
+#define C_WHITE D3DCOLOR_RGBA(255,255,255,255)
+#define C_LIGHTGRAY D3DCOLOR_RGBA(235,235,235,255)
+#define C_DARKGRAY D3DCOLOR_RGBA(100,100,100,255)
+#define C_TRANSBLACK D3DCOLOR_RGBA(0, 0, 0, 100)
+#define C_TRANSGRAY D3DCOLOR_RGBA(128, 128, 128, 128)
+
+
+int fontSize = FONT_SIZE_1080;
+int fontLineSpacing = FONT_SPACING_1080;
+bool bRunning = false;
+bool gVisible = true;
+
+bool wireframe = false;
+bool debugEXE = false;
+
+
 
 typedef HRESULT(WINAPI* tBeginScene)(LPDIRECT3DDEVICE9 pDevice);
 typedef HRESULT(WINAPI* tColorFill)(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
@@ -42,10 +84,11 @@ typedef HRESULT(WINAPI* tDrawIndexedPrimitive)(LPDIRECT3DDEVICE9 pDevice, D3DPRI
 typedef HRESULT(WINAPI* tDrawIndexedPrimitiveUP)(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertices, UINT PrimitiveCount, void *pIndexData, D3DFORMAT IndexDataFormat, void *pVertexStreamZeroData, UINT VertexStreamZeroStride);
 typedef HRESULT(WINAPI* tDrawPrimitive)(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE pPrimitiveType, UINT startVertex, UINT primitiveCount);
 typedef HRESULT(WINAPI* tDrawPrimitiveUP)(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE pPrimitiveType, UINT primitiveCount, void *pVertexStreamZeroData, UINT VertexStreamZeroStride);
+typedef HRESULT(WINAPI* tEndScene)(LPDIRECT3DDEVICE9 pDevice);
 typedef HRESULT(WINAPI* tGetLight)(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
 typedef HRESULT(WINAPI* tGetStreamSource)(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 **ppStreamData, UINT *pOffsetInBytes, UINT *pStride);
 typedef HRESULT(WINAPI* tLightEnable)(LPDIRECT3DDEVICE9 pDevice, DWORD LightIndex, BOOL bEnable);
-typedef HRESULT(WINAPI* tEndScene)(LPDIRECT3DDEVICE9 pDevice);
+typedef HRESULT(WINAPI* tProcessVertices)(LPDIRECT3DDEVICE9 pDevice, UINT SrcStartIndex, UINT DestIndex, UINT VertexCount, IDirect3DVertexBuffer9 *pDestBuffer, IDirect3DVertexDeclaration9 *pVertexDecl, DWORD Flags);
 typedef HRESULT(WINAPI* tReset)(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresentationParameters);
 typedef HRESULT(WINAPI* tSetLight)(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
 typedef HRESULT(WINAPI* tSetRenderState)(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value);
@@ -67,6 +110,8 @@ HRESULT WINAPI hEndScene(LPDIRECT3DDEVICE9 pDevice);
 HRESULT WINAPI hGetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
 HRESULT WINAPI hGetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 **ppStreamData, UINT *pOffsetInBytes, UINT *pStride);
 HRESULT WINAPI hLightEnable(LPDIRECT3DDEVICE9 pDevice, DWORD LightIndex, BOOL bEnable);
+HRESULT WINAPI hProcessVertices(LPDIRECT3DDEVICE9 pDevice, UINT SrcStartIndex, UINT DestIndex, UINT VertexCount, IDirect3DVertexBuffer9 *pDestBuffer, IDirect3DVertexDeclaration9 *pVertexDecl, DWORD Flags);
+HRESULT WINAPI hReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS *pPresentationParameters);
 HRESULT WINAPI hSetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
 HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value);
 HRESULT WINAPI hSetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 *pStreamData, UINT OffsetInBytes, UINT Stride);
@@ -87,6 +132,7 @@ tEndScene oEndScene = NULL;
 tGetLight oGetLight = NULL;
 tGetStreamSource oGetStreamSource = NULL;
 tLightEnable oLightEnable = NULL;
+tProcessVertices oProcessVertices = NULL;
 tReset oReset = NULL;
 tSetLight oSetLight = NULL;
 tSetRenderState oSetRenderState = NULL;
@@ -110,6 +156,7 @@ struct sDXFunctions
 	DWORD GetLightAddress;
 	DWORD GetStreamSourceAddress;
 	DWORD LightEnableAddress;
+	DWORD ProcessVerticesAddress;
 	DWORD ResetAddress;
 	DWORD SetLightAddress;
 	DWORD SetRenderStateAddress;
@@ -243,288 +290,8 @@ enum DXVTable
 };
 
 
-HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32);
 
 
-
-
-
-HANDLE hHotkeyThread;
-
-
-
-
-// Pointer Math
-#define ADDPTR(ptr, add) PVOID((PBYTE(ptr) + size_t(add)))
-#define SUBPTR(ptr, add) PVOID((PBYTE(ptr) - size_t(add)))
-#define DEREF(ptr, add, type) *static_cast<type*>(ADDPTR(ptr,add))
-
-#define dx_endscene 0
-#define dx_reset 1
-
-#define ALIGN_TOP 1
-#define ALIGN_LEFT 2
-#define ALIGN_RIGHT 3
-#define ALIGN_BOTTOM 4
-#define ALIGN_CENTER 5
-
-#define FONT_SIZE_1080 18
-#define FONT_SIZE_720 18
-#define FONT_SPACING_1080 19
-#define FONT_SPACING_720 19
-
-#define C_BLACK D3DCOLOR_RGBA(0,0,0,255)
-#define C_WHITE D3DCOLOR_RGBA(255,255,255,255)
-#define C_LIGHTGRAY D3DCOLOR_RGBA(235,235,235,255)
-#define C_DARKGRAY D3DCOLOR_RGBA(100,100,100,255)
-#define C_TRANSBLACK D3DCOLOR_RGBA(0, 0, 0, 100)
-#define C_TRANSGRAY D3DCOLOR_RGBA(128, 128, 128, 128)
-
-
-
-
-struct charPos
-{
-	unsigned int unk1;
-	float facing;
-	BYTE unk2[0x8];
-	float xPos;
-	float yPos;
-	float zPos;
-};
-struct charLocData
-{
-	BYTE unk1[0x1c];
-	charPos* pos;
-};
-struct creature
-{
-	BYTE unk1[0x28];
-	charLocData* loc;
-	BYTE unk2[0xC];
-	char modelName[0x10];
-	BYTE unk3[0x28];
-	unsigned int PhantomType;
-	unsigned int TeamType;
-	BYTE unk4[0x25C];
-	unsigned int currHP;
-	unsigned int maxHP;
-	BYTE unk5[0x8];
-	unsigned int currStam;
-	unsigned int maxStam;
-};
-
-
-
-struct LoadedCreatures
-{
-	PVOID pUnknown;             // 0x137DC70
-	creature* firstCreature;    // +4
-	creature* lastCreature;     // +8
-};
-
-
-
-
-
-
-void initDXFunctions();
-
-
-int fontSize = FONT_SIZE_1080;
-int fontLineSpacing = FONT_SPACING_1080;
-bool bRunning = false;
-bool gVisible = true;
-
-bool wireframe = false;
-bool debugEXE = false;
-
-
-bool Initialize_DirectX()
-{
-	printf("Initialize_DirectX Called.\n");
-
-	Console::Create("My Console");
-
-
-	DWORD dbgchk;
-	dbgchk = 0x00400080;
-
-	__asm {
-		mov eax, dbgchk
-		mov eax, [eax]
-		mov dbgchk, eax
-	}
-
-	if (dbgchk == 0xCE9634B4)
-	{
-		debugEXE = true;
-		pGlobalChainD3Device = 0x13A882C;
-	}
-	else
-	{
-		debugEXE = false;
-		pGlobalChainD3Device = 0x13A466C;
-	}
-
-
-
-	pD3dDevice = 0;
-
-	__asm {
-		mov eax, pGlobalChainD3Device
-		cmp eax, 0
-		je ptrZero
-		mov eax, [eax]
-		cmp eax, 0
-		je ptrZero
-		mov eax, [eax]
-		cmp eax, 0
-		je ptrZero
-		mov eax, [eax + 0x10]
-		cmp eax, 0
-		je ptrZero
-		mov pD3dDevice, eax
-
-		ptrZero :
-	}
-
-	if (pD3dDevice == NULL)
-		return false;
-
-	printf("pD3dDevice: %p\n", pD3dDevice);
-
-
-
-	if (!dbgchk)
-	{
-		DWORD OldProtect = 0;
-		VirtualProtect((LPVOID)0xbe73fe, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
-		VirtualProtect((LPVOID)0xbe719f, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
-		VirtualProtect((LPVOID)0xbe722b, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
-
-
-		__asm {
-			mov eax, 0xBE73FE
-			mov bx, 04
-			mov[eax], bx
-
-			mov eax, 0xBE719F
-			mov[eax], bx
-
-			mov eax, 0xBE722B
-			mov[eax], bx
-		}
-	}
-
-
-
-	initDXFunctions();
-
-
-
-	pD3dDevice->GetViewport(&d3dViewport);
-	printf("d3dViewport.width: %d\n", d3dViewport.Width);
-	printf("d3dViewport.height: %d\n", d3dViewport.Height);
-	//printf("endHook: %p\n", DXFunctions.EndSceneAddress);
-	//printf("resetHook: %p\n", DXFunctions.ResetAddress);
-	//printf("setRenderStateHook: %p\n", DXFunctions.SetRenderStateAddress);
-
-	printf("DrawIndexedPrimitive: %p\n", DXFunctions.DrawIndexedPrimitiveAddress);
-	printf("DrawIndexedPrimitiveUP: %p\n", DXFunctions.DrawIndexedPrimitiveUPAddress);
-	printf("DrawPrimitive: %p\n", DXFunctions.DrawPrimitiveAddress);
-	printf("DrawPrimitiveUP: %p\n", DXFunctions.DrawPrimitiveUPAddress);
-	printf("Finished Initialize_DirectX\n");
-
-
-	return true;
-}
-bool CreateDefaultFont()
-{
-	if (gFont == NULL)
-	{
-		printf("\tgFont == NULL\n");
-		pD3dDevice->GetViewport(&d3dViewport);
-		fontLineSpacing = (d3dViewport.Height >= 1080 ? FONT_SPACING_1080 : FONT_SPACING_720);
-		fontSize = (d3dViewport.Height >= 1080 ? FONT_SIZE_1080 : FONT_SIZE_720);
-
-		if (HRESULT fontCreateResult = D3DXCreateFont(pD3dDevice, fontSize, 0, FW_NORMAL, 1, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas", &gFont) != S_OK)
-		{
-			printf("Problem creating Font: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
-			return false;
-		}
-		printf("\tCreated gFont: %p\n", gFont);
-		printf("\tFont Size: %d\n", fontSize);
-		printf("\tFont Line Spacing: %d\n", fontLineSpacing);
-	}
-
-	if (giFont == NULL)
-	{
-		printf("\tgiFont == NULL\n");
-		pD3dDevice->GetViewport(&d3dViewport);
-		fontLineSpacing = (d3dViewport.Height >= 1080 ? FONT_SPACING_1080 : FONT_SPACING_720);
-		fontSize = (d3dViewport.Height >= 1080 ? FONT_SIZE_1080 : FONT_SIZE_720);
-
-		if (HRESULT fontCreateResult = D3DXCreateFont(pD3dDevice, (fontSize + 2), 0, FW_BOLD, 1, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas", &giFont) != S_OK)
-		{
-			printf("Problem creating Font: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
-			return false;
-		}
-		printf("\tCreated giFont: %p\n", giFont);
-		printf("\tFont Size: %d\n", fontSize);
-		printf("\tFont Line Spacing: %d\n", fontLineSpacing);
-	}
-
-	return ((gFont != NULL) && (giFont != NULL));
-}
-
-void DrawScreenText(LPD3DXFONT font, wstring text, int x, int y, D3DCOLOR color)
-{
-	if (font == NULL)
-		return;
-
-	RECT pos; pos.left = x; pos.top = y;
-	font->DrawText(0, text.c_str(), -1, &pos, DT_NOCLIP, color);
-}
-void DrawGradientBox(IDirect3DDevice9* pDevice, float x, float y, float w, float h, D3DCOLOR startColor, D3DCOLOR endColor)
-{
-	struct D3DVERTEX
-	{
-		float x, y, z, rhw;
-		D3DCOLOR color;
-
-	}
-	vertices[] =
-	{
-		{ x, y, 0, 1.0f, startColor },
-		{ x + w, y, 0, 1.0f, endColor },
-		{ x, y + h, 0, 1.0f, startColor },
-		{ x + w, y + h, 0, 1.0f, endColor }
-	};
-
-	pDevice->SetTexture(0, nullptr);
-
-	pDevice->SetRenderState(D3DRS_ALPHATESTENABLE, TRUE);
-	pDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-	pDevice->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
-	pDevice->SetRenderState(D3DRS_ALPHAREF, (DWORD)8);
-	pDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-	pDevice->SetRenderState(D3DRS_SRCBLENDALPHA, D3DRS_DESTBLENDALPHA);
-	pDevice->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
-	pDevice->SetRenderState(D3DRS_FOGENABLE, D3DZB_FALSE);
-
-	pDevice->SetFVF(0x004 | 0x040 | 0X100);
-	pDevice->SetFVF(0x004 | 0x040);
-	pDevice->SetTexture(0, nullptr);
-	pDevice->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(D3DVERTEX));
-}
-
-void drawStuff()
-{
-
-
-
-}
 
 
 HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice)
@@ -652,7 +419,15 @@ HRESULT WINAPI hLightEnable(LPDIRECT3DDEVICE9 pDevice, DWORD LightIndex, BOOL bE
 	tmp = oLightEnable(pDevice, LightIndex, bEnable);
 	return tmp;
 }
-HRESULT WINAPI hReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresentationParameters)
+HRESULT WINAPI hProcessVertices(LPDIRECT3DDEVICE9 pDevice, UINT SrcStartIndex, UINT DestIndex, UINT VertexCount, IDirect3DVertexBuffer9 *pDestBuffer, IDirect3DVertexDeclaration9 *pVertexDecl, DWORD Flags)
+{
+	//printf("ProcessVertices called.\n");
+
+	HRESULT tmp;
+	tmp = oProcessVertices(pDevice, SrcStartIndex, DestIndex, VertexCount, pDestBuffer, pVertexDecl, Flags);
+	return tmp;
+}
+HRESULT WINAPI hReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS *pPresentationParameters)
 {
 	printf("hReset() called.\n");
 
@@ -787,6 +562,7 @@ void initDXFunctions()
 	DXFunctions.GetLightAddress = pVTable[DXVTable::GetLight];
 	DXFunctions.GetStreamSourceAddress = pVTable[DXVTable::GetStreamSource];
 	DXFunctions.LightEnableAddress = pVTable[DXVTable::LightEnable];
+	DXFunctions.ProcessVerticesAddress = pVTable[DXVTable::ProcessVertices];
 	DXFunctions.ResetAddress = pVTable[DXVTable::Reset];
 	DXFunctions.SetLightAddress = pVTable[DXVTable::SetLight];
 	DXFunctions.SetRenderStateAddress = pVTable[DXVTable::SetRenderState];
@@ -795,32 +571,34 @@ void initDXFunctions()
 	DXFunctions.SetViewportAddress = pVTable[DXVTable::SetViewport];
 }
 
-DLLEXPORT void __cdecl Start(void*)
+
+
+void hook(DWORD Target, void *pDetour)
 {
-	Unloader::Initialize(hDll);
+	//No clue if this will work.
+	//Test later.
 
-	Console::Create("DS-DLL");
 
-	if (!SetConsoleCtrlHandler(OnConsoleSignal, TRUE)) {
-		printf("\nERROR: Could not set control handler\n");
-		return;
-	}
+	typedef HRESULT(WINAPI* tfunc)(LPDIRECT3DDEVICE9 pDevice);
+	tfunc ofunc = NULL;
+	*(PDWORD)ofunc = Target;
 
-	printf("Initializing\n");
-	Initialize();
-	Run();
-	Cleanup();
-
-	SetConsoleCtrlHandler(OnConsoleSignal, FALSE);
-	Console::Free();
-	Unloader::UnloadSelf(true);		// Unloading on a new thread fixes an unload issue
+	MH_CreateHook((void*)Target, pDetour, reinterpret_cast<void**>(ofunc));
+	MH_EnableHook((void*)Target);
 }
+
+
 DWORD ModuleCheckingThread()
 {
 	if (MH_Initialize() != MH_OK)
 		return -1;
 
+
+	/*  Disabled for hooktest
 	*(PDWORD)&oBeginScene = (DWORD)DXFunctions.BeginSceneAddress;
+	*/
+
+
 	*(PDWORD)&oColorFill = (DWORD)DXFunctions.ColorFillAddress;
 	*(PDWORD)&oCreateRenderTarget = (DWORD)DXFunctions.CreateRenderTargetAddress;
 	*(PDWORD)&oCreateTexture = (DWORD)DXFunctions.CreateTextureAddress;
@@ -833,6 +611,7 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oGetLight = (DWORD)DXFunctions.GetLightAddress;
 	*(PDWORD)&oGetStreamSource = (DWORD)DXFunctions.GetStreamSourceAddress;
 	*(PDWORD)&oLightEnable = (DWORD)DXFunctions.LightEnableAddress;
+	*(PDWORD)&oProcessVertices = (DWORD)DXFunctions.ProcessVerticesAddress;
 	*(PDWORD)&oReset = (DWORD)DXFunctions.ResetAddress;
 	*(PDWORD)&oSetLight = (DWORD)DXFunctions.SetLightAddress;
 	*(PDWORD)&oSetRenderState = (DWORD)DXFunctions.SetRenderStateAddress;
@@ -840,12 +619,14 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oSetTexture = (DWORD)DXFunctions.SetTextureAddress;
 
 
+	hook(DXFunctions.BeginSceneAddress, &hBeginScene);
 
+	/*  Disabled for hooktest
 	if (MH_CreateHook((void*)DXFunctions.BeginSceneAddress, &hBeginScene, reinterpret_cast<void**>(&oBeginScene)))
 		return -1;
 	if (MH_EnableHook((void*)DXFunctions.BeginSceneAddress) != MH_OK)
 		return -1;
-
+	*/
 
 	if (MH_CreateHook((void*)DXFunctions.ColorFillAddress, &hColorFill, reinterpret_cast<void**>(&oColorFill)))
 		return -1;
@@ -905,7 +686,7 @@ DWORD ModuleCheckingThread()
 		return -1;
 	if (MH_EnableHook((void*)DXFunctions.GetLightAddress) != MH_OK)
 		return -1;
-	
+
 
 	if (MH_CreateHook((void*)DXFunctions.GetStreamSourceAddress, &hGetStreamSource, reinterpret_cast<void**>(&oGetStreamSource)))
 		return -1;
@@ -919,12 +700,18 @@ DWORD ModuleCheckingThread()
 		return -1;
 
 
+	if (MH_CreateHook((void*)DXFunctions.ProcessVerticesAddress, &hProcessVertices, reinterpret_cast<void**>(&oProcessVertices)))
+		return -1;
+	if (MH_EnableHook((void*)DXFunctions.ProcessVerticesAddress) != MH_OK)
+		return -1;
+
+
 	if (MH_CreateHook((void*)DXFunctions.ResetAddress, &hReset, reinterpret_cast<void**>(&oReset)))
 		return -1;
 	if (MH_EnableHook((void*)DXFunctions.ResetAddress) != MH_OK)
 		return -1;
 
-	
+
 	if (MH_CreateHook((void*)DXFunctions.SetLightAddress, &hSetLight, reinterpret_cast<void**>(&oSetLight)))
 		return -1;
 	if (MH_EnableHook((void*)DXFunctions.SetLightAddress) != MH_OK)
@@ -951,6 +738,270 @@ DWORD ModuleCheckingThread()
 
 	return 0;
 }
+
+
+
+
+
+
+
+struct charPos
+{
+	unsigned int unk1;
+	float facing;
+	BYTE unk2[0x8];
+	float xPos;
+	float yPos;
+	float zPos;
+};
+struct charLocData
+{
+	BYTE unk1[0x1c];
+	charPos* pos;
+};
+struct creature
+{
+	BYTE unk1[0x28];
+	charLocData* loc;
+	BYTE unk2[0xC];
+	char modelName[0x10];
+	BYTE unk3[0x28];
+	unsigned int PhantomType;
+	unsigned int TeamType;
+	BYTE unk4[0x25C];
+	unsigned int currHP;
+	unsigned int maxHP;
+	BYTE unk5[0x8];
+	unsigned int currStam;
+	unsigned int maxStam;
+};
+
+
+
+struct LoadedCreatures
+{
+	PVOID pUnknown;             // 0x137DC70
+	creature* firstCreature;    // +4
+	creature* lastCreature;     // +8
+};
+
+
+void initDXFunctions();
+
+
+
+
+
+bool Initialize_DirectX()
+{
+	printf("Initialize_DirectX Called.\n");
+
+	Console::Create("My Console");
+
+
+	DWORD dbgchk;
+	dbgchk = 0x00400080;
+
+	__asm {
+		mov eax, dbgchk
+		mov eax, [eax]
+		mov dbgchk, eax
+	}
+
+	if (dbgchk == 0xCE9634B4)
+	{
+		debugEXE = true;
+		pGlobalChainD3Device = 0x13A882C;
+	}
+	else
+	{
+		debugEXE = false;
+		pGlobalChainD3Device = 0x13A466C;
+	}
+
+
+
+	pD3dDevice = 0;
+
+	__asm {
+		mov eax, pGlobalChainD3Device
+		cmp eax, 0
+		je ptrZero
+		mov eax, [eax]
+		cmp eax, 0
+		je ptrZero
+		mov eax, [eax]
+		cmp eax, 0
+		je ptrZero
+		mov eax, [eax + 0x10]
+		cmp eax, 0
+		je ptrZero
+		mov pD3dDevice, eax
+
+		ptrZero :
+	}
+
+	if (pD3dDevice == NULL)
+		return false;
+
+	printf("pD3dDevice: %p\n", pD3dDevice);
+
+
+
+	if (!dbgchk)
+	{
+		DWORD OldProtect = 0;
+		VirtualProtect((LPVOID)0xbe73fe, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
+		VirtualProtect((LPVOID)0xbe719f, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
+		VirtualProtect((LPVOID)0xbe722b, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
+
+
+		__asm {
+			mov eax, 0xBE73FE
+			mov bx, 04
+			mov[eax], bx
+
+			mov eax, 0xBE719F
+			mov[eax], bx
+
+			mov eax, 0xBE722B
+			mov[eax], bx
+		}
+	}
+
+
+
+	initDXFunctions();
+
+
+
+	pD3dDevice->GetViewport(&d3dViewport);
+	printf("d3dViewport.width: %d\n", d3dViewport.Width);
+	printf("d3dViewport.height: %d\n", d3dViewport.Height);
+	//printf("endHook: %p\n", (void *)DXFunctions.EndSceneAddress);
+	//printf("resetHook: %p\n", (void *)DXFunctions.ResetAddress);
+	//printf("setRenderStateHook: %p\n", (void *)DXFunctions.SetRenderStateAddress);
+
+	printf("DrawIndexedPrimitive: %p\n", (void *)DXFunctions.DrawIndexedPrimitiveAddress);
+	printf("DrawIndexedPrimitiveUP: %p\n", (void *)DXFunctions.DrawIndexedPrimitiveUPAddress);
+	printf("DrawPrimitive: %p\n", (void *)DXFunctions.DrawPrimitiveAddress);
+	printf("DrawPrimitiveUP: %p\n", (void *)DXFunctions.DrawPrimitiveUPAddress);
+	printf("Finished Initialize_DirectX\n");
+
+
+	return true;
+}
+bool CreateDefaultFont()
+{
+	if (gFont == NULL)
+	{
+		printf("\tgFont == NULL\n");
+		pD3dDevice->GetViewport(&d3dViewport);
+		fontLineSpacing = (d3dViewport.Height >= 1080 ? FONT_SPACING_1080 : FONT_SPACING_720);
+		fontSize = (d3dViewport.Height >= 1080 ? FONT_SIZE_1080 : FONT_SIZE_720);
+
+		if (HRESULT fontCreateResult = D3DXCreateFont(pD3dDevice, fontSize, 0, FW_NORMAL, 1, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas", &gFont) != S_OK)
+		{
+			printf("Problem creating Font: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
+			return false;
+		}
+		printf("\tCreated gFont: %p\n", gFont);
+		printf("\tFont Size: %d\n", fontSize);
+		printf("\tFont Line Spacing: %d\n", fontLineSpacing);
+	}
+
+	if (giFont == NULL)
+	{
+		printf("\tgiFont == NULL\n");
+		pD3dDevice->GetViewport(&d3dViewport);
+		fontLineSpacing = (d3dViewport.Height >= 1080 ? FONT_SPACING_1080 : FONT_SPACING_720);
+		fontSize = (d3dViewport.Height >= 1080 ? FONT_SIZE_1080 : FONT_SIZE_720);
+
+		if (HRESULT fontCreateResult = D3DXCreateFont(pD3dDevice, (fontSize + 2), 0, FW_BOLD, 1, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas", &giFont) != S_OK)
+		{
+			printf("Problem creating Font: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
+			return false;
+		}
+		printf("\tCreated giFont: %p\n", giFont);
+		printf("\tFont Size: %d\n", fontSize);
+		printf("\tFont Line Spacing: %d\n", fontLineSpacing);
+	}
+
+	return ((gFont != NULL) && (giFont != NULL));
+}
+
+void DrawScreenText(LPD3DXFONT font, wstring text, int x, int y, D3DCOLOR color)
+{
+	if (font == NULL)
+		return;
+
+	RECT pos; pos.left = x; pos.top = y;
+	font->DrawText(0, text.c_str(), -1, &pos, DT_NOCLIP, color);
+}
+void DrawGradientBox(IDirect3DDevice9* pDevice, float x, float y, float w, float h, D3DCOLOR startColor, D3DCOLOR endColor)
+{
+	struct D3DVERTEX
+	{
+		float x, y, z, rhw;
+		D3DCOLOR color;
+
+	}
+	vertices[] =
+	{
+		{ x, y, 0, 1.0f, startColor },
+		{ x + w, y, 0, 1.0f, endColor },
+		{ x, y + h, 0, 1.0f, startColor },
+		{ x + w, y + h, 0, 1.0f, endColor }
+	};
+
+	pDevice->SetTexture(0, nullptr);
+
+	pDevice->SetRenderState(D3DRS_ALPHATESTENABLE, TRUE);
+	pDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
+	pDevice->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
+	pDevice->SetRenderState(D3DRS_ALPHAREF, (DWORD)8);
+	pDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+	pDevice->SetRenderState(D3DRS_SRCBLENDALPHA, D3DRS_DESTBLENDALPHA);
+	pDevice->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
+	pDevice->SetRenderState(D3DRS_FOGENABLE, D3DZB_FALSE);
+
+	pDevice->SetFVF(0x004 | 0x040 | 0X100);
+	pDevice->SetFVF(0x004 | 0x040);
+	pDevice->SetTexture(0, nullptr);
+	pDevice->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(D3DVERTEX));
+}
+
+void drawStuff()
+{
+
+
+
+}
+
+
+
+
+DLLEXPORT void __cdecl Start(void*)
+{
+	Unloader::Initialize(hDll);
+
+	Console::Create("DS-DLL");
+
+	if (!SetConsoleCtrlHandler(OnConsoleSignal, TRUE)) {
+		printf("\nERROR: Could not set control handler\n");
+		return;
+	}
+
+	printf("Initializing\n");
+	Initialize();
+	Run();
+	Cleanup();
+
+	SetConsoleCtrlHandler(OnConsoleSignal, FALSE);
+	Console::Free();
+	Unloader::UnloadSelf(true);		// Unloading on a new thread fixes an unload issue
+}
+
 
 
 void Initialize()
