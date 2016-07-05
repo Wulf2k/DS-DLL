@@ -75,8 +75,16 @@ bool wireframe = false;
 bool debugEXE = false;
 
 
+
+//Steam Hooks
 typedef HRESULT(WINAPI* tSendP2PPacket)(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
 
+HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
+
+tSendP2PPacket oSendP2PPacket = NULL;
+
+
+//D3D9 Hooks
 typedef HRESULT(WINAPI* tBeginScene)(LPDIRECT3DDEVICE9 pDevice);
 typedef HRESULT(WINAPI* tColorFill)(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
 typedef HRESULT(WINAPI* tCreateRenderTarget)(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle);
@@ -98,8 +106,6 @@ typedef HRESULT(WINAPI* tSetStreamSource)(LPDIRECT3DDEVICE9 pDevice, UINT Stream
 typedef HRESULT(WINAPI* tSetTexture)(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
 typedef HRESULT(WINAPI* tSetViewport)(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport);
 
-HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
-
 HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice);
 HRESULT WINAPI hColorFill(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
 HRESULT WINAPI hCreateRenderTarget(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle);
@@ -120,8 +126,6 @@ HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pSt
 HRESULT WINAPI hSetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 *pStreamData, UINT OffsetInBytes, UINT Stride);
 HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
 HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport);
-
-tSendP2PPacket oSendP2PPacket = NULL;
 
 tBeginScene oBeginScene = NULL;
 tColorFill oColorFill = NULL;
@@ -293,6 +297,15 @@ enum DXVTable
 	CreateQuery // 118
 };
 
+
+
+struct sSteamFunctions
+{
+	DWORD SendP2PPacketAddress;
+};
+sSteamFunctions SteamFunctions;
+
+
 struct PacketData
 {
 	char bytes[512];
@@ -300,7 +313,7 @@ struct PacketData
 
 
 
-
+//D3D9 Hooks
 HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice)
 {
 	//printf("BeginScene called.\n");
@@ -551,6 +564,7 @@ HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
 	return tmp;
 }
 
+//Steam Hooks
 HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
 {
 	//printf("hSendP2PPacket called.\n");
@@ -558,7 +572,7 @@ HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT 
 	//printf("steamID %008X%008X\n", SteamID1, SteamID2);
 	PacketData* packetData = (PacketData*)pubData;
 
-	printf("byte #1: %d", bytes[0]);
+	printf("byte #1: %d", packetData->bytes[0]);
 
 	HRESULT tmp;
 	tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
@@ -594,17 +608,15 @@ void initDXFunctions()
 	DXFunctions.SetViewportAddress = pVTable[DXVTable::SetViewport];
 }
 
-DWORD *SendP2PPacketAddress;
 
 void initSteamFunctions()
 {
-	HMODULE steamHandle;
-	steamHandle = GetModuleHandle(TEXT("steamclient.dll"));
+	//HMODULE steamHandle;
+	//steamHandle = GetModuleHandle(TEXT("steamclient.dll"));
 
-	printf("SteamHandle:  %p\n", steamHandle);
-	//SendP2PPacketAddress = (PDWORD)steamHandle + 0x77AD0;
-	SendP2PPacketAddress = (PDWORD)0x3832A1F0;
-	printf("SendP2PPacketAddress:  %p\n", SendP2PPacketAddress);
+	
+	
+	SteamFunctions.SendP2PPacketAddress = (DWORD)0x3832A1F0;
 }
 
 
@@ -626,7 +638,13 @@ DWORD ModuleCheckingThread()
 		return -1;
 
 
-	
+	//Steam Hooks
+	*(PDWORD)&oSendP2PPacket = (DWORD)SteamFunctions.SendP2PPacketAddress;
+
+	InsertHook((void*)SteamFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
+
+
+	//D3D9 Hooks
 	*(PDWORD)&oBeginScene = (DWORD)DXFunctions.BeginSceneAddress;
 	*(PDWORD)&oColorFill = (DWORD)DXFunctions.ColorFillAddress;
 	*(PDWORD)&oCreateRenderTarget = (DWORD)DXFunctions.CreateRenderTargetAddress;
@@ -647,115 +665,24 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oSetStreamSource = (DWORD)DXFunctions.SetStreamSourceAddress;
 	*(PDWORD)&oSetTexture = (DWORD)DXFunctions.SetTextureAddress;
 
-	*(PDWORD)&oSendP2PPacket = (DWORD)SendP2PPacketAddress;
-
-
-	if (!InsertHook((void*)SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket))
-	{
-		printf("Sendhook failed\n");
-	}
-	
-
-
-	if (MH_CreateHook((void*)DXFunctions.ColorFillAddress, &hColorFill, reinterpret_cast<void**>(&oColorFill)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.ColorFillAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.CreateRenderTargetAddress, &hCreateRenderTarget, reinterpret_cast<void**>(&oCreateRenderTarget)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.CreateRenderTargetAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.CreateTextureAddress, &hCreateTexture, reinterpret_cast<void**>(&oCreateTexture)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.CreateTextureAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.CreateVertexBufferAddress, &hCreateVertexBuffer, reinterpret_cast<void**>(&oCreateVertexBuffer)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.CreateVertexBufferAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.DrawIndexedPrimitiveUPAddress, &hDrawIndexedPrimitiveUP, reinterpret_cast<void**>(&oDrawIndexedPrimitiveUP)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.DrawIndexedPrimitiveUPAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.DrawPrimitiveAddress, &hDrawPrimitive, reinterpret_cast<void**>(&oDrawPrimitive)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.DrawPrimitiveAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.DrawPrimitiveUPAddress, &hDrawPrimitiveUP, reinterpret_cast<void**>(&oDrawPrimitiveUP)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.DrawPrimitiveUPAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.EndSceneAddress, &hEndScene, reinterpret_cast<void**>(&oEndScene)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.EndSceneAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.GetLightAddress, &hGetLight, reinterpret_cast<void**>(&oGetLight)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.GetLightAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.GetStreamSourceAddress, &hGetStreamSource, reinterpret_cast<void**>(&oGetStreamSource)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.GetStreamSourceAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.LightEnableAddress, &hLightEnable, reinterpret_cast<void**>(&oLightEnable)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.LightEnableAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.ProcessVerticesAddress, &hProcessVertices, reinterpret_cast<void**>(&oProcessVertices)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.ProcessVerticesAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.ResetAddress, &hReset, reinterpret_cast<void**>(&oReset)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.ResetAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.SetLightAddress, &hSetLight, reinterpret_cast<void**>(&oSetLight)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.SetLightAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.SetRenderStateAddress, &hSetRenderState, reinterpret_cast<void**>(&oSetRenderState)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.SetRenderStateAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.SetStreamSourceAddress, &hSetStreamSource, reinterpret_cast<void**>(&oSetStreamSource)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.SetStreamSourceAddress) != MH_OK)
-		return -1;
-
-
-
 	InsertHook((void*)DXFunctions.BeginSceneAddress, &hBeginScene, &oBeginScene);
+	InsertHook((void*)DXFunctions.ColorFillAddress, &hColorFill, &oColorFill);
+	InsertHook((void*)DXFunctions.CreateRenderTargetAddress, &hCreateRenderTarget, &oCreateRenderTarget);
+	InsertHook((void*)DXFunctions.CreateTextureAddress, &hCreateTexture, &oCreateTexture);
+	InsertHook((void*)DXFunctions.CreateVertexBufferAddress, &hCreateVertexBuffer, &oCreateVertexBuffer);
 	InsertHook((void*)DXFunctions.DrawIndexedPrimitiveAddress, &hDrawIndexedPrimitive, &oDrawIndexedPrimitive);
+	InsertHook((void*)DXFunctions.DrawIndexedPrimitiveUPAddress, &hDrawIndexedPrimitiveUP, &oDrawIndexedPrimitiveUP);
+	InsertHook((void*)DXFunctions.DrawPrimitiveAddress, &hDrawPrimitive, &oDrawPrimitive);
+	InsertHook((void*)DXFunctions.DrawPrimitiveUPAddress, &hDrawPrimitiveUP, &oDrawPrimitiveUP);
+	InsertHook((void*)DXFunctions.EndSceneAddress, &hEndScene, &oEndScene);
+	InsertHook((void*)DXFunctions.GetLightAddress, &hGetLight, &oGetLight);
+	InsertHook((void*)DXFunctions.GetStreamSourceAddress, &hGetStreamSource, &oGetStreamSource);
+	InsertHook((void*)DXFunctions.LightEnableAddress, &hLightEnable, &oLightEnable);
+	InsertHook((void*)DXFunctions.ProcessVerticesAddress, &hProcessVertices, &oProcessVertices);
+	InsertHook((void*)DXFunctions.ResetAddress, &hReset, &oReset);
+	InsertHook((void*)DXFunctions.SetLightAddress, &hSetLight, &oSetLight);
+	InsertHook((void*)DXFunctions.SetRenderStateAddress, &hSetRenderState, &oSetRenderState);
+	InsertHook((void*)DXFunctions.SetStreamSourceAddress, &hSetStreamSource, &oSetStreamSource);
 	InsertHook((void*)DXFunctions.SetTextureAddress, &hSetTexture, &oSetTexture);
 
 
