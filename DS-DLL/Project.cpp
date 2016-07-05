@@ -12,6 +12,7 @@
 #include <string>
 #include <Minhook.h>
 #include <process.h>
+#include <vector>
 #pragma comment(lib, "libMinHook.lib")
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "d3dx9.lib")
@@ -34,7 +35,7 @@ LPD3DXFONT giFont;
 
 HANDLE hHotkeyThread;
 HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32);
-void InsertHook(void *pTarget, void *pDetour, void *pOriginal);
+bool InsertHook(void *pTarget, void *pDetour, void *pOriginal);
 bool CreateDefaultFont();
 void drawStuff();
 
@@ -74,6 +75,7 @@ bool wireframe = false;
 bool debugEXE = false;
 
 
+typedef HRESULT(WINAPI* tSendP2PPacket)(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
 
 typedef HRESULT(WINAPI* tBeginScene)(LPDIRECT3DDEVICE9 pDevice);
 typedef HRESULT(WINAPI* tColorFill)(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
@@ -96,6 +98,7 @@ typedef HRESULT(WINAPI* tSetStreamSource)(LPDIRECT3DDEVICE9 pDevice, UINT Stream
 typedef HRESULT(WINAPI* tSetTexture)(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
 typedef HRESULT(WINAPI* tSetViewport)(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport);
 
+HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
 
 HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice);
 HRESULT WINAPI hColorFill(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
@@ -118,6 +121,7 @@ HRESULT WINAPI hSetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, ID
 HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
 HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport);
 
+tSendP2PPacket oSendP2PPacket = NULL;
 
 tBeginScene oBeginScene = NULL;
 tColorFill oColorFill = NULL;
@@ -289,7 +293,10 @@ enum DXVTable
 	CreateQuery // 118
 };
 
-
+struct PacketData
+{
+	char bytes[512];
+};
 
 
 
@@ -544,6 +551,22 @@ HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
 	return tmp;
 }
 
+HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
+{
+	//printf("hSendP2PPacket called.\n");
+
+	//printf("steamID %008X%008X\n", SteamID1, SteamID2);
+	PacketData* packetData = (PacketData*)pubData;
+
+	printf("byte #1: %d", bytes[0]);
+
+	HRESULT tmp;
+	tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
+	return tmp;
+}
+
+
+
 
 void initDXFunctions()
 {
@@ -571,15 +594,29 @@ void initDXFunctions()
 	DXFunctions.SetViewportAddress = pVTable[DXVTable::SetViewport];
 }
 
+DWORD *SendP2PPacketAddress;
 
-
-void InsertHook(void *pTarget, void *pDetour, void *pOriginal)
+void initSteamFunctions()
 {
-	//No clue if this will work.
-	//Test later.
+	HMODULE steamHandle;
+	steamHandle = GetModuleHandle(TEXT("steamclient.dll"));
 
-	MH_CreateHook(pTarget, pDetour, reinterpret_cast<void**>(pOriginal));
-	MH_EnableHook(pTarget);
+	printf("SteamHandle:  %p\n", steamHandle);
+	//SendP2PPacketAddress = (PDWORD)steamHandle + 0x77AD0;
+	SendP2PPacketAddress = (PDWORD)0x3832A1F0;
+	printf("SendP2PPacketAddress:  %p\n", SendP2PPacketAddress);
+}
+
+
+
+bool InsertHook(void *pTarget, void *pDetour, void *pOriginal)
+{
+	if (MH_CreateHook(pTarget, pDetour, reinterpret_cast<void**>(pOriginal)))
+		return false;
+	if (MH_EnableHook(pTarget))
+		return false;
+
+	return true;
 }
 
 
@@ -610,7 +647,14 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oSetStreamSource = (DWORD)DXFunctions.SetStreamSourceAddress;
 	*(PDWORD)&oSetTexture = (DWORD)DXFunctions.SetTextureAddress;
 
+	*(PDWORD)&oSendP2PPacket = (DWORD)SendP2PPacketAddress;
 
+
+	if (!InsertHook((void*)SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket))
+	{
+		printf("Sendhook failed\n");
+	}
+	
 
 
 	if (MH_CreateHook((void*)DXFunctions.ColorFillAddress, &hColorFill, reinterpret_cast<void**>(&oColorFill)))
@@ -995,6 +1039,8 @@ void Initialize()
 	}
 
 	printf("Handle: %p\n", hDarkSouls);
+
+	initSteamFunctions();
 
 	Initialize_DirectX();
 	CreateDefaultFont();
