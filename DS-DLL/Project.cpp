@@ -87,9 +87,11 @@ tSendP2PPacket oSendP2PPacket = NULL;
 //D3D9 Hooks
 typedef HRESULT(WINAPI* tBeginScene)(LPDIRECT3DDEVICE9 pDevice);
 typedef HRESULT(WINAPI* tColorFill)(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
+typedef HRESULT(WINAPI* tCreateIndexBuffer)(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DIndexBuffer9 **ppIndexBuffer, HANDLE *pSharedHandle);
 typedef HRESULT(WINAPI* tCreateRenderTarget)(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle);
 typedef HRESULT(WINAPI* tCreateTexture)(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHAndle);
 typedef HRESULT(WINAPI* tCreateVertexBuffer)(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9 **ppVertexBuffer, HANDLE *pSharedHandle);
+typedef HRESULT(WINAPI* tCreateVertexShader)(LPDIRECT3DDEVICE9 pDevice, DWORD *pFunction, IDirect3DVertexShader9 **ppShader);
 typedef HRESULT(WINAPI* tDrawIndexedPrimitive)(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinIndex, UINT NumVertices, UINT StartIndex, UINT PrimitiveCount);
 typedef HRESULT(WINAPI* tDrawIndexedPrimitiveUP)(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertices, UINT PrimitiveCount, void *pIndexData, D3DFORMAT IndexDataFormat, void *pVertexStreamZeroData, UINT VertexStreamZeroStride);
 typedef HRESULT(WINAPI* tDrawPrimitive)(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE pPrimitiveType, UINT startVertex, UINT primitiveCount);
@@ -101,6 +103,7 @@ typedef HRESULT(WINAPI* tLightEnable)(LPDIRECT3DDEVICE9 pDevice, DWORD LightInde
 typedef HRESULT(WINAPI* tProcessVertices)(LPDIRECT3DDEVICE9 pDevice, UINT SrcStartIndex, UINT DestIndex, UINT VertexCount, IDirect3DVertexBuffer9 *pDestBuffer, IDirect3DVertexDeclaration9 *pVertexDecl, DWORD Flags);
 typedef HRESULT(WINAPI* tReset)(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresentationParameters);
 typedef HRESULT(WINAPI* tSetLight)(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
+typedef HRESULT(WINAPI* tSetMaterial)(LPDIRECT3DDEVICE9 pDevice, D3DMATERIAL9 *pMaterial);
 typedef HRESULT(WINAPI* tSetRenderState)(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value);
 typedef HRESULT(WINAPI* tSetStreamSource)(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 *pStreamData, UINT OffsetInBytes, UINT Stride);
 typedef HRESULT(WINAPI* tSetTexture)(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
@@ -108,9 +111,11 @@ typedef HRESULT(WINAPI* tSetViewport)(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *p
 
 HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice);
 HRESULT WINAPI hColorFill(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface, RECT *pRect, D3DCOLOR color);
+HRESULT WINAPI hCreateIndexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DIndexBuffer9 **ppIndexBuffer, HANDLE *pSharedHandle);
 HRESULT WINAPI hCreateRenderTarget(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle);
 HRESULT WINAPI hCreateTexture(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHAndle);
 HRESULT WINAPI hCreateVertexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9 **ppVertexBuffer, HANDLE *pSharedHandle);
+HRESULT WINAPI hCreateVertexShader(LPDIRECT3DDEVICE9 pDevice, DWORD *pFunction, IDirect3DVertexShader9 **ppShader);
 HRESULT WINAPI hDrawIndexedPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinIndex, UINT NumVertices, UINT StartIndex, UINT PrimitiveCount);
 HRESULT WINAPI hDrawIndexedPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertices, UINT PrimitiveCount, void *pIndexData, D3DFORMAT IndexDataFormat, void *pVertexStreamZeroData, UINT VertexStreamZeroStride);
 HRESULT WINAPI hDrawPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE pPrimativeType, UINT startVertex, UINT primitiveCount);
@@ -122,6 +127,7 @@ HRESULT WINAPI hLightEnable(LPDIRECT3DDEVICE9 pDevice, DWORD LightIndex, BOOL bE
 HRESULT WINAPI hProcessVertices(LPDIRECT3DDEVICE9 pDevice, UINT SrcStartIndex, UINT DestIndex, UINT VertexCount, IDirect3DVertexBuffer9 *pDestBuffer, IDirect3DVertexDeclaration9 *pVertexDecl, DWORD Flags);
 HRESULT WINAPI hReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS *pPresentationParameters);
 HRESULT WINAPI hSetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLight);
+HRESULT WINAPI hSetMaterial(LPDIRECT3DDEVICE9 pDevice, D3DMATERIAL9 *pMaterial);
 HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value);
 HRESULT WINAPI hSetStreamSource(LPDIRECT3DDEVICE9 pDevice, UINT StreamNumber, IDirect3DVertexBuffer9 *pStreamData, UINT OffsetInBytes, UINT Stride);
 HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBaseTexture9 *pTexture);
@@ -129,9 +135,11 @@ HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport);
 
 tBeginScene oBeginScene = NULL;
 tColorFill oColorFill = NULL;
+tCreateIndexBuffer oCreateIndexBuffer = NULL;
 tCreateRenderTarget oCreateRenderTarget = NULL;
 tCreateTexture oCreateTexture = NULL;
 tCreateVertexBuffer oCreateVertexBuffer = NULL;
+tCreateVertexShader oCreateVertexShader = NULL;
 tDrawIndexedPrimitive oDrawIndexedPrimitive = NULL;
 tDrawIndexedPrimitiveUP oDrawIndexedPrimitiveUP = NULL;
 tDrawPrimitive oDrawPrimitive = NULL;
@@ -143,19 +151,117 @@ tLightEnable oLightEnable = NULL;
 tProcessVertices oProcessVertices = NULL;
 tReset oReset = NULL;
 tSetLight oSetLight = NULL;
+tSetMaterial oSetMaterial = NULL;
 tSetRenderState oSetRenderState = NULL;
 tSetStreamSource oSetStreamSource = NULL;
 tSetTexture oSetTexture = NULL;
 tSetViewport oSetViewport = NULL;
 
 
+
+
+struct sSteamNetworkingFunctions
+{
+	DWORD SendP2PPacketAddress;
+};
+sSteamNetworkingFunctions SteamNetworkingFunctions;
+enum SteamNetworkingVTable
+{
+	SendP2PPacket, // 0
+	IsP2PPacketAvailable, // 1
+	ReadP2PPacket, // 2
+	AcceptP2PSessionWithUser, // 3
+	CloseP2PSessionWithUser, // 4
+	CloseP2PChannelWithUser, // 5
+	GetP2PSessionState, // 6
+	AllowP2PPacketRelay, // 7
+	CreateListenSocket, // 8
+	CreateP2PConnectionSocket, // 9 
+	CreateConnectionSocket, // 10
+	DestroySocket, // 11
+	DestroyListenSocket, // 12
+	SendDataOnSocket, // 13
+	IsDataAvailableOnSocket, // 14
+	RetrieveDataFromSocket, // 15
+	IsDataAvailable, // 16
+	RetrieveData, // 17
+	GetSocketInfo, // 18
+	GetListenSocketInfo, // 19
+	GetSocketConnectionType, // 20
+	GetMaxPacketSize // 21
+};
+
+struct sSteamMatchmakingFunctions
+{
+
+
+};
+sSteamMatchmakingFunctions SteamMatchMakingFuntions;
+enum SteamMatchmakingVTable
+{
+	GetFavoriteGameCount, // 0
+	GetFavoriteGame, // 1
+	AddFavoriteGame, // 2
+	RemoveFavoriteGame, // 3
+	RequestLobbyList, // 4
+	AddRequestLobbyListStringFilter, // 5
+	AddRequestLobbyListNumericalFilter, // 6
+	AddRequestLobbyListNearValueFilter, // 7
+	AddRequestLobbyListFilterSlotsAvailable, // 8
+	AddRequestLobbyListDistanceFilter, // 9
+	AddRequestLobbyListResultCountFilter, // 10
+	AddRequestLobbyListCompatibleMembersFilter, // 11
+	GetLobbyByIndex, // 12
+	CreateLobby, // 13
+	JoinLobby, // 14
+	LeaveLobby, // 15
+	InviteUserToLobby, // 16
+	GetNumLobbyMembers, // 17
+	GetLobbyMemberByIndex, // 18
+	GetLobbyData, // 19
+	SetLobbyData, // 20
+	GetLobbyMemberData, // 21
+	SetLobbyMemberData, // 22
+	GetLobbyDataCount, // 23
+	GetLobbyDataByIndex, // 24
+	DeleteLobbyData, // 25
+	SendLobbyChatMsg, // 26
+	GetLobbyChatEntry, // 27
+	RequestLobbyData, // 28
+	SetLobbyGameServer, // 29
+	GetLobbyGameServer, // 30
+	SetLobbyMemberLimit, // 31
+	GetLobbyMemberLimit, // 32
+	SetLobbyVoiceEnabled, // 33
+	RequestFriendsLobbies, // 34
+	SetLobbyType, // 35
+	SetLobbyJoinable, // 36
+	GetLobbyOwner, // 37
+	SetLobbyOwner, // 38
+	SetLinkedLobby, // 39
+	BeginGMSQuery, // 40
+	PollGMSQuery, // 41
+	GetGMSQueryResults, // 42
+	ReleaseGMSQuery, // 43
+	SendGameServerPingSample, // 44
+	EnsureFavoriteGameAccountsUpdated // 45
+};
+
+struct PacketData
+{
+	char bytes[512];
+};
+
+
 struct sDXFunctions
 {
 	DWORD BeginSceneAddress;
 	DWORD ColorFillAddress;
+	DWORD CreateIndexBufferAddress;
 	DWORD CreateRenderTargetAddress;
 	DWORD CreateTextureAddress;
 	DWORD CreateVertexBufferAddress;
+	DWORD CreateVertexShaderAddress;
 	DWORD DrawIndexedPrimitiveAddress;
 	DWORD DrawIndexedPrimitiveUPAddress;
 	DWORD DrawPrimitiveAddress;
@@ -167,6 +273,7 @@ struct sDXFunctions
 	DWORD ProcessVerticesAddress;
 	DWORD ResetAddress;
 	DWORD SetLightAddress;
+	DWORD SetMaterialAddress;
 	DWORD SetRenderStateAddress;
 	DWORD SetStreamSourceAddress;
 	DWORD SetTextureAddress;
@@ -299,17 +406,7 @@ enum DXVTable
 
 
 
-struct sSteamFunctions
-{
-	DWORD SendP2PPacketAddress;
-};
-sSteamFunctions SteamFunctions;
 
-
-struct PacketData
-{
-	char bytes[512];
-};
 
 
 
@@ -328,6 +425,14 @@ HRESULT WINAPI hColorFill(LPDIRECT3DDEVICE9 pDevice, IDirect3DSurface9 *pSurface
 
 	HRESULT tmp;
 	tmp = oColorFill(pDevice, pSurface, pRect, color);
+	return tmp;
+}
+HRESULT WINAPI hCreateIndexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DIndexBuffer9 **ppIndexBuffer, HANDLE *pSharedHandle)
+{
+	//printf("hCreateIndexBuffer called.\n");
+
+	HRESULT tmp;
+	tmp = oCreateIndexBuffer(pDevice, Length, Usage, Format, Pool, ppIndexBuffer, pSharedHandle);
 	return tmp;
 }
 HRESULT WINAPI hCreateRenderTarget(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle)
@@ -352,6 +457,14 @@ HRESULT WINAPI hCreateVertexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD
 
 	HRESULT tmp;
 	tmp = oCreateVertexBuffer(pDevice, Length, Usage, FVF, Pool, ppVertexBuffer, pSharedHandle);
+	return tmp;
+}
+HRESULT WINAPI hCreateVertexShader(LPDIRECT3DDEVICE9 pDevice, DWORD *pFunction, IDirect3DVertexShader9 **ppShader)
+{
+	//printf("hCreateVertexShader called.\n");
+
+	HRESULT tmp;
+	tmp = oCreateVertexShader(pDevice, pFunction, ppShader);
 	return tmp;
 }
 HRESULT WINAPI hDrawIndexedPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinIndex, UINT NumVertices, UINT StartIndex, UINT PrimitiveCount)
@@ -474,6 +587,14 @@ HRESULT WINAPI hSetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLig
 	tmp = oSetLight(pDevice, Index, pLight);
 	return tmp;
 }
+HRESULT WINAPI hSetMaterial(LPDIRECT3DDEVICE9 pDevice, D3DMATERIAL9 *pMaterial)
+{
+	//print("hSetMaterial called.\n");
+
+	HRESULT tmp;
+	tmp = oSetMaterial(pDevice, pMaterial);
+	return tmp;
+}
 HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pState, DWORD value)
 {
 	//printf("hSetRenderState() called.\n");
@@ -591,6 +712,7 @@ void initDXFunctions()
 	DXFunctions.CreateRenderTargetAddress = pVTable[DXVTable::CreateRenderTarget];
 	DXFunctions.CreateTextureAddress = pVTable[DXVTable::CreateTexture];
 	DXFunctions.CreateVertexBufferAddress = pVTable[DXVTable::CreateVertexBuffer];
+	DXFunctions.CreateVertexShaderAddress = pVTable[DXVTable::CreateVertexShader];
 	DXFunctions.DrawIndexedPrimitiveAddress = pVTable[DXVTable::DrawIndexedPrimitive];
 	DXFunctions.DrawIndexedPrimitiveUPAddress = pVTable[DXVTable::DrawIndexedPrimitiveUP];
 	DXFunctions.DrawPrimitiveAddress = pVTable[DXVTable::DrawPrimitive];
@@ -607,8 +729,6 @@ void initDXFunctions()
 	DXFunctions.SetTextureAddress = pVTable[DXVTable::SetTexture];
 	DXFunctions.SetViewportAddress = pVTable[DXVTable::SetViewport];
 }
-
-
 void initSteamFunctions()
 {
 	//HMODULE steamHandle;
@@ -616,7 +736,7 @@ void initSteamFunctions()
 
 	
 	
-	SteamFunctions.SendP2PPacketAddress = (DWORD)0x3832A1F0;
+	SteamNetworkingFunctions.SendP2PPacketAddress = (DWORD)0x3832A1F0;
 }
 
 
@@ -639,17 +759,19 @@ DWORD ModuleCheckingThread()
 
 
 	//Steam Hooks
-	*(PDWORD)&oSendP2PPacket = (DWORD)SteamFunctions.SendP2PPacketAddress;
+	*(PDWORD)&oSendP2PPacket = (DWORD)SteamNetworkingFunctions.SendP2PPacketAddress;
 
-	InsertHook((void*)SteamFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
+	InsertHook((void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
 
 
 	//D3D9 Hooks
 	*(PDWORD)&oBeginScene = (DWORD)DXFunctions.BeginSceneAddress;
 	*(PDWORD)&oColorFill = (DWORD)DXFunctions.ColorFillAddress;
+	*(PDWORD)&oCreateIndexBuffer = (DWORD)DXFunctions.CreateIndexBufferAddress;
 	*(PDWORD)&oCreateRenderTarget = (DWORD)DXFunctions.CreateRenderTargetAddress;
 	*(PDWORD)&oCreateTexture = (DWORD)DXFunctions.CreateTextureAddress;
 	*(PDWORD)&oCreateVertexBuffer = (DWORD)DXFunctions.CreateVertexBufferAddress;
+	*(PDWORD)&oCreateVertexShader = (DWORD)DXFunctions.CreateVertexShaderAddress;
 	*(PDWORD)&oDrawIndexedPrimitive = (DWORD)DXFunctions.DrawIndexedPrimitiveAddress;
 	*(PDWORD)&oDrawIndexedPrimitiveUP = (DWORD)DXFunctions.DrawIndexedPrimitiveUPAddress;
 	*(PDWORD)&oDrawPrimitive = (DWORD)DXFunctions.DrawPrimitiveAddress;
@@ -661,15 +783,18 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oProcessVertices = (DWORD)DXFunctions.ProcessVerticesAddress;
 	*(PDWORD)&oReset = (DWORD)DXFunctions.ResetAddress;
 	*(PDWORD)&oSetLight = (DWORD)DXFunctions.SetLightAddress;
+	*(PDWORD)&oSetMaterial = (DWORD)DXFunctions.SetMaterialAddress;
 	*(PDWORD)&oSetRenderState = (DWORD)DXFunctions.SetRenderStateAddress;
 	*(PDWORD)&oSetStreamSource = (DWORD)DXFunctions.SetStreamSourceAddress;
 	*(PDWORD)&oSetTexture = (DWORD)DXFunctions.SetTextureAddress;
 
 	InsertHook((void*)DXFunctions.BeginSceneAddress, &hBeginScene, &oBeginScene);
 	InsertHook((void*)DXFunctions.ColorFillAddress, &hColorFill, &oColorFill);
+	InsertHook((void*)DXFunctions.CreateIndexBufferAddress, &hCreateIndexBuffer, &oCreateIndexBuffer);
 	InsertHook((void*)DXFunctions.CreateRenderTargetAddress, &hCreateRenderTarget, &oCreateRenderTarget);
 	InsertHook((void*)DXFunctions.CreateTextureAddress, &hCreateTexture, &oCreateTexture);
 	InsertHook((void*)DXFunctions.CreateVertexBufferAddress, &hCreateVertexBuffer, &oCreateVertexBuffer);
+	InsertHook((void*)DXFunctions.CreateVertexShaderAddress, &hCreateVertexShader, &oCreateVertexShader);
 	InsertHook((void*)DXFunctions.DrawIndexedPrimitiveAddress, &hDrawIndexedPrimitive, &oDrawIndexedPrimitive);
 	InsertHook((void*)DXFunctions.DrawIndexedPrimitiveUPAddress, &hDrawIndexedPrimitiveUP, &oDrawIndexedPrimitiveUP);
 	InsertHook((void*)DXFunctions.DrawPrimitiveAddress, &hDrawPrimitive, &oDrawPrimitive);
@@ -681,6 +806,7 @@ DWORD ModuleCheckingThread()
 	InsertHook((void*)DXFunctions.ProcessVerticesAddress, &hProcessVertices, &oProcessVertices);
 	InsertHook((void*)DXFunctions.ResetAddress, &hReset, &oReset);
 	InsertHook((void*)DXFunctions.SetLightAddress, &hSetLight, &oSetLight);
+	InsertHook((void*)DXFunctions.SetMaterialAddress, &hSetLight, &oSetMaterial);
 	InsertHook((void*)DXFunctions.SetRenderStateAddress, &hSetRenderState, &oSetRenderState);
 	InsertHook((void*)DXFunctions.SetStreamSourceAddress, &hSetStreamSource, &oSetStreamSource);
 	InsertHook((void*)DXFunctions.SetTextureAddress, &hSetTexture, &oSetTexture);
