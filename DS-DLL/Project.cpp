@@ -34,7 +34,7 @@ LPD3DXFONT giFont;
 
 HANDLE hHotkeyThread;
 HRESULT GenerateTexture(IDirect3DDevice9 *pD3Ddev, IDirect3DTexture9 **ppD3Dtex, DWORD colour32);
-void hook(DWORD Target, void* pDetour);
+void InsertHook(void *pTarget, void *pDetour, void *pOriginal);
 bool CreateDefaultFont();
 void drawStuff();
 
@@ -573,18 +573,13 @@ void initDXFunctions()
 
 
 
-void hook(DWORD Target, void *pDetour)
+void InsertHook(void *pTarget, void *pDetour, void *pOriginal)
 {
 	//No clue if this will work.
 	//Test later.
 
-
-	typedef HRESULT(WINAPI* tfunc)(LPDIRECT3DDEVICE9 pDevice);
-	tfunc ofunc = NULL;
-	*(PDWORD)ofunc = Target;
-
-	MH_CreateHook((void*)Target, pDetour, reinterpret_cast<void**>(ofunc));
-	MH_EnableHook((void*)Target);
+	MH_CreateHook(pTarget, pDetour, reinterpret_cast<void**>(pOriginal));
+	MH_EnableHook(pTarget);
 }
 
 
@@ -594,11 +589,8 @@ DWORD ModuleCheckingThread()
 		return -1;
 
 
-	/*  Disabled for hooktest
+	
 	*(PDWORD)&oBeginScene = (DWORD)DXFunctions.BeginSceneAddress;
-	*/
-
-
 	*(PDWORD)&oColorFill = (DWORD)DXFunctions.ColorFillAddress;
 	*(PDWORD)&oCreateRenderTarget = (DWORD)DXFunctions.CreateRenderTargetAddress;
 	*(PDWORD)&oCreateTexture = (DWORD)DXFunctions.CreateTextureAddress;
@@ -619,14 +611,7 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oSetTexture = (DWORD)DXFunctions.SetTextureAddress;
 
 
-	hook(DXFunctions.BeginSceneAddress, &hBeginScene);
 
-	/*  Disabled for hooktest
-	if (MH_CreateHook((void*)DXFunctions.BeginSceneAddress, &hBeginScene, reinterpret_cast<void**>(&oBeginScene)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.BeginSceneAddress) != MH_OK)
-		return -1;
-	*/
 
 	if (MH_CreateHook((void*)DXFunctions.ColorFillAddress, &hColorFill, reinterpret_cast<void**>(&oColorFill)))
 		return -1;
@@ -649,12 +634,6 @@ DWORD ModuleCheckingThread()
 	if (MH_CreateHook((void*)DXFunctions.CreateVertexBufferAddress, &hCreateVertexBuffer, reinterpret_cast<void**>(&oCreateVertexBuffer)))
 		return -1;
 	if (MH_EnableHook((void*)DXFunctions.CreateVertexBufferAddress) != MH_OK)
-		return -1;
-
-
-	if (MH_CreateHook((void*)DXFunctions.DrawIndexedPrimitiveAddress, &hDrawIndexedPrimitive, reinterpret_cast<void**>(&oDrawIndexedPrimitive)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.DrawIndexedPrimitiveAddress) != MH_OK)
 		return -1;
 
 
@@ -730,10 +709,11 @@ DWORD ModuleCheckingThread()
 		return -1;
 
 
-	if (MH_CreateHook((void*)DXFunctions.SetTextureAddress, &hSetTexture, reinterpret_cast<void**>(&oSetTexture)))
-		return -1;
-	if (MH_EnableHook((void*)DXFunctions.SetTextureAddress) != MH_OK)
-		return -1;
+
+	InsertHook((void*)DXFunctions.BeginSceneAddress, &hBeginScene, &oBeginScene);
+	InsertHook((void*)DXFunctions.DrawIndexedPrimitiveAddress, &hDrawIndexedPrimitive, &oDrawIndexedPrimitive);
+	InsertHook((void*)DXFunctions.SetTextureAddress, &hSetTexture, &oSetTexture);
+
 
 
 	return 0;
