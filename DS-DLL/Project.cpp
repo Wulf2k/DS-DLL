@@ -3,16 +3,20 @@
 #include "Test.h"
 #include "Unloader.h"
 #include "Console.h"
-#include <Windows.h>
-#include <windowsx.h>
-#include <WinBase.h>
-#include <stdio.h>
 #include <d3d9.h>
 #include <d3dx9.h>
-#include <string>
+#include <fstream>
+#include <iomanip>
 #include <Minhook.h>
 #include <process.h>
+#include <stdio.h>
+#include <string>
 #include <vector>
+#include <WinBase.h>
+#include <Windows.h>
+#include <windowsx.h>
+
+
 #pragma comment(lib, "libMinHook.lib")
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "d3dx9.lib")
@@ -74,13 +78,19 @@ bool gVisible = true;
 bool wireframe = false;
 bool debugEXE = false;
 
+//ofstream fout("c:\\temp\\DLLout.txt");
+
 
 
 //Steam Hooks
+typedef HRESULT(WINAPI* tReadP2PPacket)(void * pubDest, UINT cubDest, UINT *pcubMsgSize, UINT SteamID2, UINT SteamID1);
 typedef HRESULT(WINAPI* tSendP2PPacket)(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
+//typedef HRESULT(WINAPI* tSendP2PPacket)(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType);
 
+HRESULT WINAPI hReadP2PPacket(void * pubDest, UINT cubDest, UINT *pcubMsgSize, UINT SteamID2, UINT SteamID1);
 HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
 
+tReadP2PPacket oReadP2PPacket = NULL;
 tSendP2PPacket oSendP2PPacket = NULL;
 
 
@@ -163,6 +173,8 @@ tSetViewport oSetViewport = NULL;
 struct sSteamNetworkingFunctions
 {
 	DWORD SendP2PPacketAddress;
+	DWORD IsP2PPacketAvailableAddress;
+	DWORD ReadP2PPacketAddress;
 };
 sSteamNetworkingFunctions SteamNetworkingFunctions;
 enum SteamNetworkingVTable
@@ -251,7 +263,7 @@ struct PacketData
 {
 	char bytes[512];
 };
-
+PacketData* packetData;
 
 struct sDXFunctions
 {
@@ -685,18 +697,58 @@ HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
 	return tmp;
 }
 
+
 //Steam Hooks
+HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT SteamID2, UINT SteamID1)
+{
+	//printf("hReadP2PPacket called.\n");
+
+	HRESULT tmp;
+	//tmp = oReadP2PPacket(pubDest, cubDest, pcubMsgSize, SteamID2, SteamID1);
+
+
+	//PacketData* packetData = (PacketData*)pubDest;
+
+
+	//printf("In size: %d\n", pcubMsgSize);
+
+	/*
+	fout << "In,x,x,";
+	fout << hex << setfill('0') << setw(8) << SteamID1 << SteamID2 << ",";
+	fout << cubData << ",";
+	printf("In size: %d\n", cubData);
+	for (int i = 0; i < cubData; ++i)
+		fout << hex << setfill('0') << setw(2) << (int)packetData->bytes[i] << " ";
+	fout << endl;
+	*/
+
+	//printf("Read byte #1: %d\n", packetData->bytes[0]);
+	printf("Read byte\n");
+
+
+
+
+
+
+	return tmp;
+}
 HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
 {
 	//printf("hSendP2PPacket called.\n");
+	
+	//Not working, fix later.
 
-	//printf("steamID %008X%008X\n", SteamID1, SteamID2);
-	PacketData* packetData = (PacketData*)pubData;
+	HRESULT tmp = 0;
 
-	printf("byte #1: %d", packetData->bytes[0]);
 
-	HRESULT tmp;
-	tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
+	if (cubData > 0)
+	{
+		PacketData* packetData = (PacketData*)pubData;
+
+		if (!(packetData->bytes[0] == 0x1a || packetData->bytes[0] == 0x71))
+			tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
+	}
+
 	return tmp;
 }
 
@@ -734,9 +786,11 @@ void initSteamFunctions()
 	//HMODULE steamHandle;
 	//steamHandle = GetModuleHandle(TEXT("steamclient.dll"));
 
+	DWORD* pVTable = (DWORD*)0x387A7308;
+	SteamNetworkingFunctions.ReadP2PPacketAddress = pVTable[SteamNetworkingVTable::ReadP2PPacket];
+	SteamNetworkingFunctions.SendP2PPacketAddress = pVTable[SteamNetworkingVTable::SendP2PPacket];
 	
-	
-	SteamNetworkingFunctions.SendP2PPacketAddress = (DWORD)0x3832A1F0;
+	//SteamNetworkingFunctions.SendP2PPacketAddress = (DWORD)0x3832A1F0;
 }
 
 
@@ -759,8 +813,10 @@ DWORD ModuleCheckingThread()
 
 
 	//Steam Hooks
+	*(PDWORD)&oReadP2PPacket = (DWORD)SteamNetworkingFunctions.ReadP2PPacketAddress;
 	*(PDWORD)&oSendP2PPacket = (DWORD)SteamNetworkingFunctions.SendP2PPacketAddress;
 
+	//InsertHook((void*)SteamNetworkingFunctions.ReadP2PPacketAddress, &hReadP2PPacket, &oReadP2PPacket);
 	InsertHook((void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
 
 
@@ -925,7 +981,7 @@ bool Initialize_DirectX()
 
 
 
-	if (!dbgchk)
+	if (!debugEXE)
 	{
 		DWORD OldProtect = 0;
 		VirtualProtect((LPVOID)0xbe73fe, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
@@ -935,14 +991,14 @@ bool Initialize_DirectX()
 
 		__asm {
 			mov eax, 0xBE73FE
-			mov bx, 04
-			mov[eax], bx
+			mov bx, 0x3e
+			mov[eax], bl
 
 			mov eax, 0xBE719F
-			mov[eax], bx
+			mov[eax], bl
 
 			mov eax, 0xBE722B
-			mov[eax], bx
+			mov[eax], bl
 		}
 	}
 
@@ -964,7 +1020,7 @@ bool Initialize_DirectX()
 	printf("DrawPrimitive: %p\n", (void *)DXFunctions.DrawPrimitiveAddress);
 	printf("DrawPrimitiveUP: %p\n", (void *)DXFunctions.DrawPrimitiveUPAddress);
 	printf("Finished Initialize_DirectX\n");
-
+	printf("oSendP2P: %p\n", (void *)SteamNetworkingFunctions.SendP2PPacketAddress);
 
 	return true;
 }
@@ -1103,11 +1159,17 @@ void Initialize()
 
 	_beginthread(&hotkeyThread, 0, 0);
 
+
+	printf("%p, %p, %p\n", (void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
+	printf("Read:  %X\n", SteamNetworkingFunctions.ReadP2PPacketAddress);
+	printf("Send:  %X\n", SteamNetworkingFunctions.SendP2PPacketAddress);
 	
+	//fout << "Direction,nChannel, EP2PSendType, SteamID, Size, Contents" << endl;
 }
 void Cleanup()
 {
 	MH_DisableHook(MH_ALL_HOOKS);
+	//fout.close();
 }
 void Run()
 {
