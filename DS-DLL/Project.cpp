@@ -736,19 +736,33 @@ HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT 
 {
 	//printf("hSendP2PPacket called.\n");
 	
-	//Not working, fix later.
+	//ecx not preserved by hook, fixed here.
+	DWORD regecx = NULL;
+		__asm {
+		mov regecx, ecx
+	}
 
-	HRESULT tmp = 0;
-
-
+	
+	/*
 	if (cubData > 0)
 	{
 		PacketData* packetData = (PacketData*)pubData;
 
 		if (!(packetData->bytes[0] == 0x1a || packetData->bytes[0] == 0x71))
 			tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
+	}*/
+
+	printf("Send\n");
+
+
+
+
+	__asm {
+		mov ecx, regecx
 	}
 
+	HRESULT tmp = 0;
+	tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
 	return tmp;
 }
 
