@@ -78,7 +78,7 @@ bool gVisible = true;
 bool wireframe = false;
 bool debugEXE = false;
 
-//ofstream fout("c:\\temp\\DLLout.txt");
+ofstream fout("c:\\temp\\DLLout.txt");
 
 
 
@@ -261,7 +261,7 @@ enum SteamMatchmakingVTable
 
 struct PacketData
 {
-	char bytes[512];
+	byte bytes[512];
 };
 PacketData* packetData;
 
@@ -703,38 +703,43 @@ HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UI
 {
 	//printf("hReadP2PPacket called.\n");
 
-	HRESULT tmp;
-	//tmp = oReadP2PPacket(pubDest, cubDest, pcubMsgSize, SteamID2, SteamID1);
+	HRESULT tmp = 0;
+
+	//ecx not preserved by hook, fixed here.
+	DWORD regecx = NULL;
+	__asm {
+		mov regecx, ecx
+	}
+
+	PacketData* packetData = (PacketData*)pubDest;
 
 
-	//PacketData* packetData = (PacketData*)pubDest;
 
 
-	//printf("In size: %d\n", pcubMsgSize);
-
-	/*
+	printf("pubDest: %p, In size: %d\n", pubDest, cubDest);
 	fout << "In,x,x,";
 	fout << hex << setfill('0') << setw(8) << SteamID1 << SteamID2 << ",";
-	fout << cubData << ",";
-	printf("In size: %d\n", cubData);
-	for (int i = 0; i < cubData; ++i)
-		fout << hex << setfill('0') << setw(2) << (int)packetData->bytes[i] << " ";
+	fout << cubDest << ",";
+	for (int i = 0; i < cubDest; ++i)
+		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
 	fout << endl;
-	*/
+	
 
-	//printf("Read byte #1: %d\n", packetData->bytes[0]);
-	printf("Read byte\n");
-
-
-
+	__asm {
+		mov ecx, regecx
+	}
 
 
+	//if (!(packetData->bytes[0] == 0x1a || packetData->bytes[0] == 0x71))
+		tmp = oReadP2PPacket(pubDest, cubDest, pcubMsgSize, SteamID2, SteamID1);
 
 	return tmp;
 }
 HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
 {
 	//printf("hSendP2PPacket called.\n");
+
+	HRESULT tmp = 0;
 	
 	//ecx not preserved by hook, fixed here.
 	DWORD regecx = NULL;
@@ -742,27 +747,27 @@ HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT 
 		mov regecx, ecx
 	}
 
+	PacketData* packetData = (PacketData*)pubData;
+
 	
-	/*
-	if (cubData > 0)
-	{
-		PacketData* packetData = (PacketData*)pubData;
 
-		if (!(packetData->bytes[0] == 0x1a || packetData->bytes[0] == 0x71))
-			tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
-	}*/
-
-	printf("Send\n");
-
-
+	fout << "Out," << nChannel << "," << eP2PSendType << ",";
+	fout << hex << setfill('0') << setw(8) << SteamID1 << SteamID2 << ",";
+	fout << cubData << ",";
+	printf("Out size: %d\n", cubData);
+	for (int i = 0; i < cubData; ++i)
+		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
+	fout << endl;
+	
 
 
 	__asm {
 		mov ecx, regecx
 	}
 
-	HRESULT tmp = 0;
-	tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
+	if (!(packetData->bytes[0] == 0x1a || packetData->bytes[0] == 0x71))
+		tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
+
 	return tmp;
 }
 
@@ -830,7 +835,7 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oReadP2PPacket = (DWORD)SteamNetworkingFunctions.ReadP2PPacketAddress;
 	*(PDWORD)&oSendP2PPacket = (DWORD)SteamNetworkingFunctions.SendP2PPacketAddress;
 
-	//InsertHook((void*)SteamNetworkingFunctions.ReadP2PPacketAddress, &hReadP2PPacket, &oReadP2PPacket);
+	InsertHook((void*)SteamNetworkingFunctions.ReadP2PPacketAddress, &hReadP2PPacket, &oReadP2PPacket);
 	InsertHook((void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
 
 
@@ -1178,12 +1183,12 @@ void Initialize()
 	printf("Read:  %X\n", SteamNetworkingFunctions.ReadP2PPacketAddress);
 	printf("Send:  %X\n", SteamNetworkingFunctions.SendP2PPacketAddress);
 	
-	//fout << "Direction,nChannel, EP2PSendType, SteamID, Size, Contents" << endl;
+	fout << "Direction,nChannel, EP2PSendType, SteamID, Size, Contents" << endl;
 }
 void Cleanup()
 {
 	MH_DisableHook(MH_ALL_HOOKS);
-	//fout.close();
+	fout.close();
 }
 void Run()
 {
