@@ -765,7 +765,7 @@ HRESULT WINAPI hSendP2PPacket(UINT SteamID2, UINT SteamID1, void *pubData, UINT 
 		mov ecx, regecx
 	}
 
-	if (!(packetData->bytes[0] == 0x1a || packetData->bytes[0] == 0x71))
+	//if (!(packetData->bytes[0] == 0x71))
 		tmp = oSendP2PPacket(SteamID2, SteamID1, pubData, cubData, eP2PSendType, nChannel);
 
 	return tmp;
