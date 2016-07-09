@@ -817,17 +817,27 @@ void initDXFunctions()
 }
 void initSteamFunctions()
 {
-	HMODULE steamHandle;
-	steamHandle = GetModuleHandle(TEXT("steamclient.dll"));
+	HMODULE steamapiHandle;
+	steamapiHandle = GetModuleHandle(TEXT("steam_api.dll"));
+	
+	DWORD* SteamNetworking;
 
-	printf("steamclient:  %p\n", steamHandle);
+	__asm {
+		mov eax, steamapiHandle
+		add eax, 0x182bc
+		mov eax, [eax]
+		mov eax, [eax+4]
+		mov eax, [eax]
+		mov SteamNetworking, eax
+	}
 
-	//DWORD* pVTable = (DWORD*)0x387A7308;
-	DWORD *pVTable = (DWORD*)0x387A5B70;
+	printf("SteamNetworking: %p\n", SteamNetworking);
+
+	DWORD *pVTable = (DWORD*)(SteamNetworking);
+
+
 	SteamNetworkingFunctions.ReadP2PPacketAddress = pVTable[SteamNetworkingVTable::ReadP2PPacket];
 	SteamNetworkingFunctions.SendP2PPacketAddress = pVTable[SteamNetworkingVTable::SendP2PPacket];
-	
-	//SteamNetworkingFunctions.SendP2PPacketAddress = (DWORD)0x3832A1F0;
 }
 
 
