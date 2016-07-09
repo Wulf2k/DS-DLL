@@ -85,11 +85,11 @@ ofstream fout("c:\\temp\\DLLout.txt");
 
 
 //Steam Matchmaking Hooks
-typedef HRESULT(WINAPI* tRequestLobbyList)(void);
-typedef HRESULT(WINAPI* tGetLobbyByIndex)(int iLobby);
+typedef void (__thiscall *tRequestLobbyList)(void*);
+typedef void (__thiscall *tGetLobbyByIndex)(void*, UINT *result, int iLobby);
 
-HRESULT WINAPI hRequestLobbyList(void);
-HRESULT WINAPI hGetLobbyByIndex(int iLobby);
+void __fastcall hRequestLobbyList(void *This, void *notUsed);
+void __fastcall hGetLobbyByIndex(void *This, void *notUsed, UINT *result, int iLobby);
 
 tRequestLobbyList oRequestLobbyList = NULL;
 tGetLobbyByIndex oGetLobbyByIndex = NULL;
@@ -428,44 +428,21 @@ struct PacketData
 
 
 //Steam Matchmaking Hooks
-HRESULT WINAPI hRequestLobbyList(void)
+void __fastcall hRequestLobbyList(void* This, void* notUsed)
 {
-	__asm {
-		push ecx
-	}
 	printf("hRequestLobbyList called.\n");
-
-
-	__asm {
-		pop ecx
-	}
-	HRESULT tmp = 0;
-	tmp = oRequestLobbyList();
-
-	return tmp;
+	
+	
+	oRequestLobbyList(This);
 }
-HRESULT WINAPI hGetLobbyByIndex(int iLobby)
+void __fastcall hGetLobbyByIndex(void* This, void* notUsed, UINT* result, int iLobby)
 {
-	__asm {
-		push ecx
-		push edi
-		push esi
-	}
-	printf("hGetLobbyByIndex called.\n");
+	printf("hGetLobbyByIndex called - result:  %p.\n", result);
 
-
-
-	__asm {
-		pop esi
-		pop edi
-		pop ecx
-	}
-
-	HRESULT tmp = 0;
-	tmp = oGetLobbyByIndex(iLobby);
+	oGetLobbyByIndex(This, result, iLobby);
 
 	//printf("Get Lobby Steam ID:  %16X\n", tmp);
-	return tmp;
+
 }
 
 
@@ -1135,7 +1112,8 @@ bool Initialize_DirectX()
 	//printf("Finished Initialize_DirectX\n");
 	//printf("oSendP2P: %p\n", (void *)SteamNetworkingFunctions.SendP2PPacketAddress);
 
-	printf("RequestLobbyList:  %p\n", (void *)SteamMatchMakingFunctions.RequestLobbyListAddress);
+	printf("RequestLobbyList:  %p\n", (void*)SteamMatchMakingFunctions.RequestLobbyListAddress);
+	printf("GetLobbyByIndex:  %p\n", (void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress);
 
 
 	return true;
