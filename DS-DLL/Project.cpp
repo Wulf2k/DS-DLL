@@ -77,18 +77,24 @@ bool bRunning = false;
 bool gVisible = true;
 
 bool wireframe = false;
+bool packetdump = false;
 bool debugEXE = false;
 byte ver = 0x2e;
 
 ofstream fout("c:\\temp\\DLLout.txt");
 
 
+//Steam Matchmaking Hooks
+typedef HRESULT(WINAPI* tRequestLobbyList)(void);
 
-//Steam Hooks
+HRESULT WINAPI hRequestLobbyList(void);
+
+tRequestLobbyList oRequestLobbyList = NULL;
+
+
+//Steam Networking Hooks
 typedef HRESULT(WINAPI* tReadP2PPacket)(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel);
 typedef HRESULT(WINAPI* tSendP2PPacket)(UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
-//typedef HRESULT(WINAPI* tSendP2PPacket)(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
-//typedef HRESULT(WINAPI* tSendP2PPacket)(UINT SteamID2, UINT SteamID1, void *pubData, UINT cubData, UINT eP2PSendType);
 
 HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel);
 HRESULT WINAPI hSendP2PPacket(UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
@@ -208,10 +214,10 @@ enum SteamNetworkingVTable
 
 struct sSteamMatchmakingFunctions
 {
-
+	DWORD RequestLobbyListAddress;
 
 };
-sSteamMatchmakingFunctions SteamMatchMakingFuntions;
+sSteamMatchmakingFunctions SteamMatchMakingFunctions;
 enum SteamMatchmakingVTable
 {
 	GetFavoriteGameCount, // 0
@@ -421,7 +427,118 @@ enum DXVTable
 
 
 
+//Steam Matchmaking Hooks
+HRESULT WINAPI hRequestLobbyList(void)
+{
+	printf("hRequestLobbyList called.\n");
 
+	DWORD regecx = NULL;
+	__asm {
+		mov regecx, ecx
+	}
+	HRESULT tmp = 0;
+
+	__asm {
+		mov ecx, regecx
+	}
+	
+	tmp = oRequestLobbyList();
+
+	return tmp;
+
+}
+
+
+//Steam Networking Hooks
+HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel)
+{
+	//printf("hReadP2PPacket called.\n");
+
+	DWORD regecx = NULL;
+	__asm {
+		mov regecx, ecx
+	}
+
+
+	HRESULT tmp = 0;
+
+
+
+	__asm {
+		mov ecx, regecx
+	}
+
+	tmp = oReadP2PPacket(pubDest, cubDest, pcubMsgSize, SteamID, nChannel);
+
+
+	if (packetdump)
+	{
+		PacketData* packetData = (PacketData*)pubDest;
+
+		SYSTEMTIME st;
+		GetLocalTime(&st);
+		fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
+			<< std::setw(2) << st.wMinute << ':'
+			<< std::setw(2) << st.wSecond << '.'
+			<< std::setw(3) << st.wMilliseconds << ',';
+
+		fout << "In ," << nChannel << ",x,";
+		fout << hex << setfill('0') << setw(16) << *SteamID << ",";
+		fout << dec << setfill('0') << std::setw(4) << cubDest << ",";
+		for (int i = 0; i < cubDest; ++i)
+			fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
+		fout << endl;
+
+		//printf("In size, byte #1:  %d, %d\n", cubDest, packetData->bytes[0]);
+	}
+
+	return tmp;
+}
+HRESULT WINAPI hSendP2PPacket(UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
+{
+	//printf("hSendP2PPacket called.\n");
+
+	HRESULT tmp = 0;
+
+	//ecx not preserved by hook, fixed here.
+	DWORD regecx = NULL;
+	__asm {
+		mov regecx, ecx
+	}
+
+
+	if (packetdump)
+	{
+		PacketData* packetData = (PacketData*)pubData;
+
+		SYSTEMTIME st;
+		GetLocalTime(&st);
+		fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
+			<< std::setw(2) << st.wMinute << ':'
+			<< std::setw(2) << st.wSecond << '.'
+			<< std::setw(3) << st.wMilliseconds << ',';
+
+		fout << "Out," << nChannel << "," << eP2PSendType << ",";
+		fout << hex << setfill('0') << setw(16) << SteamID << ",";
+		fout << dec << setfill('0') << std::setw(4) << cubData << ",";
+		for (int i = 0; i < cubData; ++i)
+			fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
+		fout << endl;
+
+		//printf("Out size, byte #1:  %d, %d\n", cubData, packetData->bytes[0]);
+	}
+
+
+
+	__asm {
+		mov ecx, regecx
+	}
+
+	//if (!(packetData->bytes[0] == 0x71))
+	tmp = oSendP2PPacket(SteamID, pubData, cubData, eP2PSendType, nChannel);
+
+	return tmp;
+}
 
 
 //D3D9 Hooks
@@ -700,91 +817,6 @@ HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
 }
 
 
-//Steam Hooks
-HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel)
-{
-	//printf("hReadP2PPacket called.\n");
-
-	DWORD regecx = NULL;
-	__asm {
-		mov regecx, ecx
-	}
-
-
-	HRESULT tmp = 0;
-
-
-
-	__asm {
-		mov ecx, regecx
-	}
-
-	tmp = oReadP2PPacket(pubDest, cubDest, pcubMsgSize, SteamID, nChannel);
-
-	//__debugbreak();
-
-	PacketData* packetData = (PacketData*)pubDest;
-
-
-	SYSTEMTIME st;
-	GetLocalTime(&st);
-	fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
-		<< std::setw(2) << st.wMinute << ':'
-		<< std::setw(2) << st.wSecond << '.'
-		<< std::setw(3) << st.wMilliseconds << ',';
-
-	fout << "In ," << nChannel << ",x,";
-	fout << hex << setfill('0') << setw(16) << *SteamID << "," ;
-	fout << dec << setfill('0') << std::setw(4) << cubDest << ",";
-	for (int i = 0; i < cubDest; ++i)
-		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
-	fout << endl;
-
-	printf("In size, byte #1:  %d, %d\n", cubDest, packetData->bytes[0]);
-
-
-	return tmp;
-}
-HRESULT WINAPI hSendP2PPacket(UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
-{
-	//printf("hSendP2PPacket called.\n");
-
-	HRESULT tmp = 0;
-	
-	//ecx not preserved by hook, fixed here.
-	DWORD regecx = NULL;
-		__asm {
-		mov regecx, ecx
-	}
-		
-
-	PacketData* packetData = (PacketData*)pubData;
-
-	SYSTEMTIME st;
-	GetLocalTime(&st);
-	fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
-		<< std::setw(2) << st.wMinute << ':'
-		<< std::setw(2) << st.wSecond << '.'
-		<< std::setw(3) << st.wMilliseconds << ',';
-
-	fout << "Out," << nChannel << "," << eP2PSendType << ",";
-	fout << hex << setfill('0') << setw(16) << SteamID << ",";
-	fout << dec << setfill('0') << std::setw(4) << cubData << ",";
-	for (int i = 0; i < cubData; ++i)
-		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
-	fout << endl;
-	
-	printf("Out size, byte #1:  %d, %d\n", cubData, packetData->bytes[0]);
-
-	__asm {
-		mov ecx, regecx
-	}
-
-	//if (!(packetData->bytes[0] == 0x71))
-		tmp = oSendP2PPacket(SteamID, pubData, cubData, eP2PSendType, nChannel);
-
-	return tmp;
-}
 
 
 
@@ -821,6 +853,7 @@ void initSteamFunctions()
 	steamapiHandle = GetModuleHandle(TEXT("steam_api.dll"));
 	
 	DWORD* SteamNetworking;
+	DWORD* SteamMatchmaking;
 
 	__asm {
 		mov eax, steamapiHandle
@@ -830,14 +863,26 @@ void initSteamFunctions()
 		mov eax, [eax]
 		mov SteamNetworking, eax
 	}
-
-	printf("SteamNetworking: %p\n", SteamNetworking);
-
 	DWORD *pVTable = (DWORD*)(SteamNetworking);
+
 
 
 	SteamNetworkingFunctions.ReadP2PPacketAddress = pVTable[SteamNetworkingVTable::ReadP2PPacket];
 	SteamNetworkingFunctions.SendP2PPacketAddress = pVTable[SteamNetworkingVTable::SendP2PPacket];
+
+
+	__asm {
+		mov eax, steamapiHandle
+			add eax, 0x182ac
+			mov eax, [eax]
+			mov eax, [eax + 4]
+			mov eax, [eax]
+			mov SteamMatchmaking, eax
+	}
+	pVTable = (DWORD*)(SteamMatchmaking);
+
+
+	SteamMatchMakingFunctions.RequestLobbyListAddress = pVTable[SteamMatchmakingVTable::RequestLobbyList];
 }
 
 
@@ -859,7 +904,13 @@ DWORD ModuleCheckingThread()
 		return -1;
 
 
-	//Steam Hooks
+	//Steam Matchmaking Hooks
+	*(PDWORD)&oRequestLobbyList = (DWORD)SteamMatchMakingFunctions.RequestLobbyListAddress;
+
+	InsertHook((void*)SteamMatchMakingFunctions.RequestLobbyListAddress, &hRequestLobbyList, &oRequestLobbyList);
+
+
+	//Steam Networking Hooks
 	*(PDWORD)&oReadP2PPacket = (DWORD)SteamNetworkingFunctions.ReadP2PPacketAddress;
 	*(PDWORD)&oSendP2PPacket = (DWORD)SteamNetworkingFunctions.SendP2PPacketAddress;
 
@@ -974,7 +1025,7 @@ void initDXFunctions();
 
 bool Initialize_DirectX()
 {
-	printf("Initialize_DirectX Called.\n");
+	//printf("Initialize_DirectX Called.\n");
 
 	Console::Create("My Console");
 
@@ -1024,7 +1075,7 @@ bool Initialize_DirectX()
 	if (pD3dDevice == NULL)
 		return false;
 
-	printf("pD3dDevice: %p\n", pD3dDevice);
+	//printf("pD3dDevice: %p\n", pD3dDevice);
 
 
 
@@ -1062,12 +1113,15 @@ bool Initialize_DirectX()
 	//printf("resetHook: %p\n", (void *)DXFunctions.ResetAddress);
 	//printf("setRenderStateHook: %p\n", (void *)DXFunctions.SetRenderStateAddress);
 
-	printf("DrawIndexedPrimitive: %p\n", (void *)DXFunctions.DrawIndexedPrimitiveAddress);
-	printf("DrawIndexedPrimitiveUP: %p\n", (void *)DXFunctions.DrawIndexedPrimitiveUPAddress);
-	printf("DrawPrimitive: %p\n", (void *)DXFunctions.DrawPrimitiveAddress);
-	printf("DrawPrimitiveUP: %p\n", (void *)DXFunctions.DrawPrimitiveUPAddress);
-	printf("Finished Initialize_DirectX\n");
-	printf("oSendP2P: %p\n", (void *)SteamNetworkingFunctions.SendP2PPacketAddress);
+	//printf("DrawIndexedPrimitive: %p\n", (void *)DXFunctions.DrawIndexedPrimitiveAddress);
+	//printf("DrawIndexedPrimitiveUP: %p\n", (void *)DXFunctions.DrawIndexedPrimitiveUPAddress);
+	//printf("DrawPrimitive: %p\n", (void *)DXFunctions.DrawPrimitiveAddress);
+	//printf("DrawPrimitiveUP: %p\n", (void *)DXFunctions.DrawPrimitiveUPAddress);
+	//printf("Finished Initialize_DirectX\n");
+	//printf("oSendP2P: %p\n", (void *)SteamNetworkingFunctions.SendP2PPacketAddress);
+
+	printf("RequestLobbyList:  %p\n", (void *)SteamMatchMakingFunctions.RequestLobbyListAddress);
+
 
 	return true;
 }
@@ -1075,7 +1129,7 @@ bool CreateDefaultFont()
 {
 	if (gFont == NULL)
 	{
-		printf("\tgFont == NULL\n");
+		//printf("\tgFont == NULL\n");
 		pD3dDevice->GetViewport(&d3dViewport);
 		fontLineSpacing = (d3dViewport.Height >= 1080 ? FONT_SPACING_1080 : FONT_SPACING_720);
 		fontSize = (d3dViewport.Height >= 1080 ? FONT_SIZE_1080 : FONT_SIZE_720);
@@ -1086,13 +1140,13 @@ bool CreateDefaultFont()
 			return false;
 		}
 		printf("\tCreated gFont: %p\n", gFont);
-		printf("\tFont Size: %d\n", fontSize);
-		printf("\tFont Line Spacing: %d\n", fontLineSpacing);
+		//printf("\tFont Size: %d\n", fontSize);
+		//printf("\tFont Line Spacing: %d\n", fontLineSpacing);
 	}
 
 	if (giFont == NULL)
 	{
-		printf("\tgiFont == NULL\n");
+		//printf("\tgiFont == NULL\n");
 		pD3dDevice->GetViewport(&d3dViewport);
 		fontLineSpacing = (d3dViewport.Height >= 1080 ? FONT_SPACING_1080 : FONT_SPACING_720);
 		fontSize = (d3dViewport.Height >= 1080 ? FONT_SIZE_1080 : FONT_SIZE_720);
@@ -1103,8 +1157,8 @@ bool CreateDefaultFont()
 			return false;
 		}
 		printf("\tCreated giFont: %p\n", giFont);
-		printf("\tFont Size: %d\n", fontSize);
-		printf("\tFont Line Spacing: %d\n", fontLineSpacing);
+		//printf("\tFont Size: %d\n", fontSize);
+		//printf("\tFont Line Spacing: %d\n", fontLineSpacing);
 	}
 
 	return ((gFont != NULL) && (giFont != NULL));
