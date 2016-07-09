@@ -268,11 +268,6 @@ enum SteamMatchmakingVTable
 	EnsureFavoriteGameAccountsUpdated // 45
 };
 
-struct PacketData
-{
-	byte bytes[512];
-};
-
 struct sDXFunctions
 {
 	DWORD BeginSceneAddress;
@@ -300,7 +295,6 @@ struct sDXFunctions
 	DWORD SetViewportAddress;
 };
 sDXFunctions DXFunctions;
-
 enum DXVTable
 {
 	QueryInterface, // 0
@@ -424,6 +418,10 @@ enum DXVTable
 	CreateQuery // 118
 };
 
+struct PacketData
+{
+	byte bytes[512];
+};
 
 
 
@@ -1240,8 +1238,8 @@ DLLEXPORT void __cdecl Start(void*)
 
 void Initialize()
 {
-
-	fout << "Time,Direction,nChannel,EP2PSendType,SteamID,Size,Contents" << endl;
+	if (packetdump)
+		fout << "Time,Direction,nChannel,EP2PSendType,SteamID,Size,Contents" << endl;
 
 	HANDLE hDarkSouls = GetModuleHandleA("DarkSouls.exe");
 
@@ -1273,7 +1271,8 @@ void Initialize()
 void Cleanup()
 {
 	MH_DisableHook(MH_ALL_HOOKS);
-	fout.close();
+	if (packetdump)
+		fout.close();
 }
 void Run()
 {
