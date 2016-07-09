@@ -86,10 +86,13 @@ ofstream fout("c:\\temp\\DLLout.txt");
 
 //Steam Matchmaking Hooks
 typedef HRESULT(WINAPI* tRequestLobbyList)(void);
+typedef HRESULT(WINAPI* tGetLobbyByIndex)(int iLobby);
 
 HRESULT WINAPI hRequestLobbyList(void);
+HRESULT WINAPI hGetLobbyByIndex(int iLobby);
 
 tRequestLobbyList oRequestLobbyList = NULL;
+tGetLobbyByIndex oGetLobbyByIndex = NULL;
 
 
 //Steam Networking Hooks
@@ -177,44 +180,10 @@ tSetTexture oSetTexture = NULL;
 tSetViewport oSetViewport = NULL;
 
 
-
-
-struct sSteamNetworkingFunctions
-{
-	DWORD SendP2PPacketAddress;
-	DWORD IsP2PPacketAvailableAddress;
-	DWORD ReadP2PPacketAddress;
-};
-sSteamNetworkingFunctions SteamNetworkingFunctions;
-enum SteamNetworkingVTable
-{
-	SendP2PPacket, // 0
-	IsP2PPacketAvailable, // 1
-	ReadP2PPacket, // 2
-	AcceptP2PSessionWithUser, // 3
-	CloseP2PSessionWithUser, // 4
-	CloseP2PChannelWithUser, // 5
-	GetP2PSessionState, // 6
-	AllowP2PPacketRelay, // 7
-	CreateListenSocket, // 8
-	CreateP2PConnectionSocket, // 9 
-	CreateConnectionSocket, // 10
-	DestroySocket, // 11
-	DestroyListenSocket, // 12
-	SendDataOnSocket, // 13
-	IsDataAvailableOnSocket, // 14
-	RetrieveDataFromSocket, // 15
-	IsDataAvailable, // 16
-	RetrieveData, // 17
-	GetSocketInfo, // 18
-	GetListenSocketInfo, // 19
-	GetSocketConnectionType, // 20
-	GetMaxPacketSize // 21
-};
-
 struct sSteamMatchmakingFunctions
 {
 	DWORD RequestLobbyListAddress;
+	DWORD GetLobbyByIndexAddress;
 
 };
 sSteamMatchmakingFunctions SteamMatchMakingFunctions;
@@ -266,6 +235,39 @@ enum SteamMatchmakingVTable
 	ReleaseGMSQuery, // 43
 	SendGameServerPingSample, // 44
 	EnsureFavoriteGameAccountsUpdated // 45
+};
+
+struct sSteamNetworkingFunctions
+{
+	DWORD SendP2PPacketAddress;
+	DWORD IsP2PPacketAvailableAddress;
+	DWORD ReadP2PPacketAddress;
+};
+sSteamNetworkingFunctions SteamNetworkingFunctions;
+enum SteamNetworkingVTable
+{
+	SendP2PPacket, // 0
+	IsP2PPacketAvailable, // 1
+	ReadP2PPacket, // 2
+	AcceptP2PSessionWithUser, // 3
+	CloseP2PSessionWithUser, // 4
+	CloseP2PChannelWithUser, // 5
+	GetP2PSessionState, // 6
+	AllowP2PPacketRelay, // 7
+	CreateListenSocket, // 8
+	CreateP2PConnectionSocket, // 9 
+	CreateConnectionSocket, // 10
+	DestroySocket, // 11
+	DestroyListenSocket, // 12
+	SendDataOnSocket, // 13
+	IsDataAvailableOnSocket, // 14
+	RetrieveDataFromSocket, // 15
+	IsDataAvailable, // 16
+	RetrieveData, // 17
+	GetSocketInfo, // 18
+	GetListenSocketInfo, // 19
+	GetSocketConnectionType, // 20
+	GetMaxPacketSize // 21
 };
 
 struct sDXFunctions
@@ -428,113 +430,121 @@ struct PacketData
 //Steam Matchmaking Hooks
 HRESULT WINAPI hRequestLobbyList(void)
 {
+	__asm {
+		push ecx
+	}
 	printf("hRequestLobbyList called.\n");
 
-	DWORD regecx = NULL;
-	__asm {
-		mov regecx, ecx
-	}
-	HRESULT tmp = 0;
 
 	__asm {
-		mov ecx, regecx
+		pop ecx
 	}
-	
+	HRESULT tmp = 0;
 	tmp = oRequestLobbyList();
 
 	return tmp;
+}
+HRESULT WINAPI hGetLobbyByIndex(int iLobby)
+{
+	__asm {
+		push ecx
+		push edi
+		push esi
+	}
+	printf("hGetLobbyByIndex called.\n");
 
+
+
+	__asm {
+		pop esi
+		pop edi
+		pop ecx
+	}
+
+	HRESULT tmp = 0;
+	tmp = oGetLobbyByIndex(iLobby);
+
+	//printf("Get Lobby Steam ID:  %16X\n", tmp);
+	return tmp;
 }
 
 
 //Steam Networking Hooks
 HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel)
 {
-	//printf("hReadP2PPacket called.\n");
-
-	DWORD regecx = NULL;
 	__asm {
-		mov regecx, ecx
+		push ecx
+	}
+
+	//printf("hReadP2PPacket called.\n");
+	
+
+
+
+	__asm {
+		pop ecx
 	}
 
 
 	HRESULT tmp = 0;
-
-
-
-	__asm {
-		mov ecx, regecx
-	}
-
 	tmp = oReadP2PPacket(pubDest, cubDest, pcubMsgSize, SteamID, nChannel);
 
+	PacketData* packetData = (PacketData*)pubDest;
 
-	if (packetdump)
-	{
-		PacketData* packetData = (PacketData*)pubDest;
+	SYSTEMTIME st;
+	GetLocalTime(&st);
+	fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
+		<< std::setw(2) << st.wMinute << ':'
+		<< std::setw(2) << st.wSecond << '.'
+		<< std::setw(3) << st.wMilliseconds << ',';
 
-		SYSTEMTIME st;
-		GetLocalTime(&st);
-		fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
-			<< std::setw(2) << st.wMinute << ':'
-			<< std::setw(2) << st.wSecond << '.'
-			<< std::setw(3) << st.wMilliseconds << ',';
+	fout << "In ," << nChannel << ",x,";
+	fout << hex << setfill('0') << setw(16) << *SteamID << ",";
+	fout << dec << setfill('0') << std::setw(4) << cubDest << ",";
+	for (int i = 0; i < cubDest; ++i)
+		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
+	fout << endl;
 
-		fout << "In ," << nChannel << ",x,";
-		fout << hex << setfill('0') << setw(16) << *SteamID << ",";
-		fout << dec << setfill('0') << std::setw(4) << cubDest << ",";
-		for (int i = 0; i < cubDest; ++i)
-			fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
-		fout << endl;
-
-		//printf("In size, byte #1:  %d, %d\n", cubDest, packetData->bytes[0]);
-	}
+	//printf("In size, byte #1:  %d, %d\n", cubDest, packetData->bytes[0]);
 
 	return tmp;
 }
 HRESULT WINAPI hSendP2PPacket(UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
 {
+	//ecx not preserved by hook, fixed here.
+	__asm {
+		push ecx
+	}
 	//printf("hSendP2PPacket called.\n");
+	
+
+	__asm {
+		pop ecx
+	}
 
 	HRESULT tmp = 0;
-
-	//ecx not preserved by hook, fixed here.
-	DWORD regecx = NULL;
-	__asm {
-		mov regecx, ecx
-	}
-
-
-	if (packetdump)
-	{
-		PacketData* packetData = (PacketData*)pubData;
-
-		SYSTEMTIME st;
-		GetLocalTime(&st);
-		fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
-			<< std::setw(2) << st.wMinute << ':'
-			<< std::setw(2) << st.wSecond << '.'
-			<< std::setw(3) << st.wMilliseconds << ',';
-
-		fout << "Out," << nChannel << "," << eP2PSendType << ",";
-		fout << hex << setfill('0') << setw(16) << SteamID << ",";
-		fout << dec << setfill('0') << std::setw(4) << cubData << ",";
-		for (int i = 0; i < cubData; ++i)
-			fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
-		fout << endl;
-
-		//printf("Out size, byte #1:  %d, %d\n", cubData, packetData->bytes[0]);
-	}
-
-
-
-	__asm {
-		mov ecx, regecx
-	}
-
-	//if (!(packetData->bytes[0] == 0x71))
 	tmp = oSendP2PPacket(SteamID, pubData, cubData, eP2PSendType, nChannel);
+	
 
+	PacketData* packetData = (PacketData*)pubData;
+
+	SYSTEMTIME st;
+	GetLocalTime(&st);
+
+	fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
+		<< std::setw(2) << st.wMinute << ':'
+		<< std::setw(2) << st.wSecond << '.'
+		<< std::setw(3) << st.wMilliseconds << ',';
+
+	fout << "Out," << nChannel << "," << eP2PSendType << ",";
+	fout << hex << setfill('0') << setw(16) << SteamID << ",";
+	fout << dec << setfill('0') << std::setw(4) << cubData << ",";
+	for (int i = 0; i < cubData; ++i)
+		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
+	fout << endl;
+
+	//printf("Out size, byte #1:  %d, %d\n", cubData, packetData->bytes[0]);
+	
 	return tmp;
 }
 
@@ -853,21 +863,6 @@ void initSteamFunctions()
 	DWORD* SteamNetworking;
 	DWORD* SteamMatchmaking;
 
-	__asm {
-		mov eax, steamapiHandle
-		add eax, 0x182bc
-		mov eax, [eax]
-		mov eax, [eax+4]
-		mov eax, [eax]
-		mov SteamNetworking, eax
-	}
-	DWORD *pVTable = (DWORD*)(SteamNetworking);
-
-
-
-	SteamNetworkingFunctions.ReadP2PPacketAddress = pVTable[SteamNetworkingVTable::ReadP2PPacket];
-	SteamNetworkingFunctions.SendP2PPacketAddress = pVTable[SteamNetworkingVTable::SendP2PPacket];
-
 
 	__asm {
 		mov eax, steamapiHandle
@@ -877,10 +872,30 @@ void initSteamFunctions()
 			mov eax, [eax]
 			mov SteamMatchmaking, eax
 	}
-	pVTable = (DWORD*)(SteamMatchmaking);
+	DWORD* pVTable = (DWORD*)(SteamMatchmaking);
 
 
 	SteamMatchMakingFunctions.RequestLobbyListAddress = pVTable[SteamMatchmakingVTable::RequestLobbyList];
+	SteamMatchMakingFunctions.GetLobbyByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyByIndex];
+	
+
+	__asm {
+		mov eax, steamapiHandle
+		add eax, 0x182bc
+		mov eax, [eax]
+		mov eax, [eax+4]
+		mov eax, [eax]
+		mov SteamNetworking, eax
+	}
+	pVTable = (DWORD*)(SteamNetworking);
+
+
+
+	SteamNetworkingFunctions.ReadP2PPacketAddress = pVTable[SteamNetworkingVTable::ReadP2PPacket];
+	SteamNetworkingFunctions.SendP2PPacketAddress = pVTable[SteamNetworkingVTable::SendP2PPacket];
+
+
+
 }
 
 
@@ -904,8 +919,10 @@ DWORD ModuleCheckingThread()
 
 	//Steam Matchmaking Hooks
 	*(PDWORD)&oRequestLobbyList = (DWORD)SteamMatchMakingFunctions.RequestLobbyListAddress;
+	*(PDWORD)&oGetLobbyByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyByIndexAddress;
 
 	InsertHook((void*)SteamMatchMakingFunctions.RequestLobbyListAddress, &hRequestLobbyList, &oRequestLobbyList);
+	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress, &hGetLobbyByIndex, &oGetLobbyByIndex);
 
 
 	//Steam Networking Hooks
