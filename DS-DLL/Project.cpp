@@ -13,6 +13,7 @@
 #include <string>
 #include <time.h>
 #include <vector>
+#include <wchar.h>
 #include <WinBase.h>
 #include <Windows.h>
 #include <windowsx.h>
@@ -79,7 +80,9 @@ bool gVisible = true;
 bool wireframe = false;
 bool debugEXE = false;
 bool showstats = false;
-wstring lastHit[5] = { L"",L"",L"",L"",L""};
+wstring lastAtk[5] = { L"x",L"x",L"x",L"x",L"x" };
+wstring lastDef[5] = { L"x",L"x",L"x",L"x",L"x" };
+float lastDmg[5] = { 0, 0, 0, 0, 0 };
 byte ver = 0x3e;
 
 DWORD *chardata1 = NULL;
@@ -87,9 +90,9 @@ DWORD *chardata1 = NULL;
 ofstream fout("c:\\temp\\DLLout.txt");
 
 //In-Game Function Hooks
-typedef void(__stdcall *tDS_LandHit)(UINT *defChar, float *dmg, UINT unk);
+typedef void(__stdcall *tDS_LandHit)(UINT *atkChar, float *dmg, UINT unk);
 
-void __stdcall hDS_LandHit(UINT *defChar, float *dmg, UINT unk);
+void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk);
 
 tDS_LandHit oDS_LandHit = NULL;
 
@@ -485,16 +488,16 @@ struct creature
 	BYTE unk1[0x28];
 	charLocData* loc;
 	BYTE unk2[0xC];
-	char modelName[0x10];
+	wchar_t modelName[0x8];
 	BYTE unk3[0x28];
-	unsigned int PhantomType;
-	unsigned int TeamType;
+	int PhantomType;
+	int TeamType;
 	BYTE unk4[0x25C];
-	unsigned int currHP;
-	unsigned int maxHP;
+	int currHP;
+	int maxHP;
 	BYTE unk5[0x8];
-	unsigned int currStam;
-	unsigned int maxStam;
+	int currStam;
+	int maxStam;
 };
 
 
@@ -512,32 +515,45 @@ struct LoadedCreatures
 //In-Game Function Hooks
 void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 {
-	UINT* defChar;
+	UINT *defChar;
+
+
 	__asm {
 		mov defChar, eax
+		push eax
 	}
+
+	
+	
 	creature *atk = (creature*)atkChar;
 	creature *def = (creature*)defChar;
 
+
 	for (int i = 0; i < 4; i++)
 	{
-		lastHit[i] = lastHit[i + i];
+		lastAtk[i] = lastAtk[i + 1];
+		lastDef[i] = lastDef[i + 1];
+		lastDmg[i] = lastDmg[i + 1];
 	}
-
-
-
-	wstring atkmod = *(wstring*)&atk->modelName;
-	wstring defmod = *(wstring*)&def->modelName;
+	
+	//wchar_t buffer[80] = L"";
+	//wcscat_s(buffer, atk->modelName);
+	//*(wstring*)&atk->modelName + L" hit " + *(wstring*)&def->modelName + L" for " + to_wstring(*dmg);
+	//printf("%p\n", &buffer);
 
 
 	//lastHit[4] = *(wstring*)&atk->modelName + L" hit " + *(wstring*)&def->modelName + L" for " + to_wstring(*dmg);
-	lastHit[4] = atkmod + L" hit " + defmod + L" for " + to_wstring(*dmg);
+	//lastHit[4] = wstring(buffer);
 	
+	lastAtk[4] = *(wstring*)&atk->modelName;
+	lastDef[4] = *(wstring*)&def->modelName;
+	lastDmg[4] = (float)(*dmg);
+	//printf(".\n");
 
 	__asm {
-		mov eax, defChar
+		pop eax
 	}
-	oDS_LandHit(defChar,  dmg, unk);
+	oDS_LandHit(atkChar, dmg, unk);
 }
 
 
@@ -1380,9 +1396,11 @@ void drawStuff()
 		text = to_wstring(self->currStam) + L" / " + to_wstring(self->maxStam);
 		DrawScreenText(giFont, text, xP(15), yP(14.25), C_WHITE);
 
-		for (int i = 0; i < 4; i++)
+		
+		for (int i = 0; i < 5; i++)
 		{
-			DrawScreenText(giFont, lastHit[i], xP(10), yP(25 + (i*2)), C_WHITE);
+			text = lastAtk[i] + L" hit " + lastDef[i] + L" for " + to_wstring(lastDmg[i]) + L" damage.";
+			DrawScreenText(giFont, text, xP(10), yP(25 + (i*2)), C_WHITE);
 		}
 
 	}
