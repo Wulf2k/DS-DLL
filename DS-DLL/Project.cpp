@@ -78,10 +78,20 @@ bool gVisible = true;
 
 bool wireframe = false;
 bool debugEXE = false;
+bool showstats = false;
+wstring lastHit[5] = { L"",L"",L"",L"",L""};
 byte ver = 0x3e;
+
+DWORD *chardata1 = NULL;
 
 ofstream fout("c:\\temp\\DLLout.txt");
 
+//In-Game Function Hooks
+typedef void(__stdcall *tDS_LandHit)(UINT *defChar, float *dmg, UINT unk);
+
+void __stdcall hDS_LandHit(UINT *defChar, float *dmg, UINT unk);
+
+tDS_LandHit oDS_LandHit = NULL;
 
 //Steam Matchmaking Hooks
 typedef void(__thiscall *tAddRequestLobbyListNearValueFilter)(void*, char *pchKeyToMatch, int nValueToBeCloseTo);
@@ -198,6 +208,12 @@ tSetRenderState oSetRenderState = NULL;
 tSetStreamSource oSetStreamSource = NULL;
 tSetTexture oSetTexture = NULL;
 tSetViewport oSetViewport = NULL;
+
+struct sDSGameFunctions
+{
+	DWORD DS_LandHitAddress;
+};
+sDSGameFunctions DSGameFunctions;
 
 
 struct sSteamMatchmakingFunctions
@@ -450,7 +466,80 @@ struct PacketData
 {
 	byte bytes[512];
 };
+struct charPos
+{
+	unsigned int unk1;
+	float facing;
+	BYTE unk2[0x8];
+	float xPos;
+	float yPos;
+	float zPos;
+};
+struct charLocData
+{
+	BYTE unk1[0x1c];
+	charPos* pos;
+};
+struct creature
+{
+	BYTE unk1[0x28];
+	charLocData* loc;
+	BYTE unk2[0xC];
+	char modelName[0x10];
+	BYTE unk3[0x28];
+	unsigned int PhantomType;
+	unsigned int TeamType;
+	BYTE unk4[0x25C];
+	unsigned int currHP;
+	unsigned int maxHP;
+	BYTE unk5[0x8];
+	unsigned int currStam;
+	unsigned int maxStam;
+};
 
+
+
+struct LoadedCreatures
+{
+	PVOID pUnknown;             // 0x137DC70
+	creature* firstCreature;    // +4
+	creature* lastCreature;     // +8
+};
+
+
+
+
+//In-Game Function Hooks
+void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
+{
+	UINT* defChar;
+	__asm {
+		mov defChar, eax
+	}
+	creature *atk = (creature*)atkChar;
+	creature *def = (creature*)defChar;
+
+	for (int i = 0; i < 3; i++)
+	{
+		lastHit[i] = lastHit[i + i];
+	}
+
+
+	//wstring atk = *(wstring*)&atk->modelName;
+	wstring atk;
+	
+	wstring def = *(wstring*)&def->modelName;
+	wstring damage = to_wstring(*dmg);
+
+
+	lastHit[4] =  atk + L" hit " + def + L" for " + damage;
+	
+
+	__asm {
+		mov eax, defChar
+	}
+	oDS_LandHit(defChar,  dmg, unk);
+}
 
 
 //Steam Matchmaking Hooks
@@ -729,13 +818,18 @@ HRESULT WINAPI hReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS *pPresent
 
 	if (gFont)
 		gFont->OnLostDevice(); // Avoid device loss errors
+	if (giFont)
+		giFont->OnLostDevice();
 
 
 	HRESULT hReturn = oReset(pDevice, pPresentationParameters);
 	if (hReturn == D3D_OK && gFont)
 		gFont->OnResetDevice();
+	if (hReturn == D3D_OK && giFont)
+		giFont->OnResetDevice();
 
 	gFont = NULL;
+	giFont = NULL;
 
 	CreateDefaultFont();
 
@@ -852,7 +946,59 @@ HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
 
 
 
+void initInGameFunctions()
+{
+	DSGameFunctions.DS_LandHitAddress = 0x00E6BFE0;
+}
+void initSteamFunctions()
+{
+	HMODULE steamapiHandle;
+	steamapiHandle = GetModuleHandle(TEXT("steam_api.dll"));
 
+	DWORD *SteamNetworking;
+	DWORD *SteamMatchmaking;
+
+
+	__asm {
+		mov eax, steamapiHandle
+			add eax, 0x182ac
+			mov eax, [eax]
+			mov eax, [eax + 4]
+			mov eax, [eax]
+			mov SteamMatchmaking, eax
+	}
+	DWORD *pVTable = (DWORD*)(SteamMatchmaking);
+
+	SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNearValueFilter];
+	SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNumericalFilter];
+	SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListStringFilter];
+	SteamMatchMakingFunctions.CreateLobbyAddress = pVTable[SteamMatchmakingVTable::CreateLobby];
+	SteamMatchMakingFunctions.GetLobbyByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyByIndex];
+	SteamMatchMakingFunctions.GetLobbyDataByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyDataByIndex];
+	SteamMatchMakingFunctions.JoinLobbyAddress = pVTable[SteamMatchmakingVTable::JoinLobby];
+	SteamMatchMakingFunctions.RequestLobbyListAddress = pVTable[SteamMatchmakingVTable::RequestLobbyList];
+	SteamMatchMakingFunctions.SendLobbyChatMsgAddress = pVTable[SteamMatchmakingVTable::SendLobbyChatMsg];
+
+
+
+	__asm {
+		mov eax, steamapiHandle
+			add eax, 0x182bc
+			mov eax, [eax]
+			mov eax, [eax + 4]
+			mov eax, [eax]
+			mov SteamNetworking, eax
+	}
+	pVTable = (DWORD*)(SteamNetworking);
+
+
+
+	SteamNetworkingFunctions.ReadP2PPacketAddress = pVTable[SteamNetworkingVTable::ReadP2PPacket];
+	SteamNetworkingFunctions.SendP2PPacketAddress = pVTable[SteamNetworkingVTable::SendP2PPacket];
+
+
+
+}
 void initDXFunctions()
 {
 	DWORD* pVTable = (DWORD*)pD3dDevice;
@@ -879,55 +1025,7 @@ void initDXFunctions()
 	DXFunctions.SetTextureAddress = pVTable[DXVTable::SetTexture];
 	DXFunctions.SetViewportAddress = pVTable[DXVTable::SetViewport];
 }
-void initSteamFunctions()
-{
-	HMODULE steamapiHandle;
-	steamapiHandle = GetModuleHandle(TEXT("steam_api.dll"));
-	
-	DWORD *SteamNetworking;
-	DWORD *SteamMatchmaking;
 
-
-	__asm {
-		mov eax, steamapiHandle
-			add eax, 0x182ac
-			mov eax, [eax]
-			mov eax, [eax + 4]
-			mov eax, [eax]
-			mov SteamMatchmaking, eax
-	}
-	DWORD *pVTable = (DWORD*)(SteamMatchmaking);
-
-	SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNearValueFilter];
-	SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNumericalFilter];
-	SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListStringFilter];
-	SteamMatchMakingFunctions.CreateLobbyAddress = pVTable[SteamMatchmakingVTable::CreateLobby];
-	SteamMatchMakingFunctions.GetLobbyByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyByIndex];
-	SteamMatchMakingFunctions.GetLobbyDataByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyDataByIndex];
-	SteamMatchMakingFunctions.JoinLobbyAddress = pVTable[SteamMatchmakingVTable::JoinLobby];
-	SteamMatchMakingFunctions.RequestLobbyListAddress = pVTable[SteamMatchmakingVTable::RequestLobbyList];
-	SteamMatchMakingFunctions.SendLobbyChatMsgAddress = pVTable[SteamMatchmakingVTable::SendLobbyChatMsg];
-	
-	
-
-	__asm {
-		mov eax, steamapiHandle
-		add eax, 0x182bc
-		mov eax, [eax]
-		mov eax, [eax+4]
-		mov eax, [eax]
-		mov SteamNetworking, eax
-	}
-	pVTable = (DWORD*)(SteamNetworking);
-
-
-
-	SteamNetworkingFunctions.ReadP2PPacketAddress = pVTable[SteamNetworkingVTable::ReadP2PPacket];
-	SteamNetworkingFunctions.SendP2PPacketAddress = pVTable[SteamNetworkingVTable::SendP2PPacket];
-
-
-
-}
 
 
 
@@ -947,6 +1045,10 @@ DWORD ModuleCheckingThread()
 	if (MH_Initialize() != MH_OK)
 		return -1;
 
+	//In-Game Function Hooks
+	*(PDWORD)&oDS_LandHit = (DWORD)DSGameFunctions.DS_LandHitAddress;
+
+	InsertHook((void*)DSGameFunctions.DS_LandHitAddress, &hDS_LandHit, &oDS_LandHit);
 
 	//Steam Matchmaking Hooks
 	*(PDWORD)&oAddRequestLobbyListNumericalFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress;
@@ -1039,45 +1141,7 @@ DWORD ModuleCheckingThread()
 
 
 
-struct charPos
-{
-	unsigned int unk1;
-	float facing;
-	BYTE unk2[0x8];
-	float xPos;
-	float yPos;
-	float zPos;
-};
-struct charLocData
-{
-	BYTE unk1[0x1c];
-	charPos* pos;
-};
-struct creature
-{
-	BYTE unk1[0x28];
-	charLocData* loc;
-	BYTE unk2[0xC];
-	char modelName[0x10];
-	BYTE unk3[0x28];
-	unsigned int PhantomType;
-	unsigned int TeamType;
-	BYTE unk4[0x25C];
-	unsigned int currHP;
-	unsigned int maxHP;
-	BYTE unk5[0x8];
-	unsigned int currStam;
-	unsigned int maxStam;
-};
 
-
-
-struct LoadedCreatures
-{
-	PVOID pUnknown;             // 0x137DC70
-	creature* firstCreature;    // +4
-	creature* lastCreature;     // +8
-};
 
 
 void initDXFunctions();
@@ -1183,8 +1247,8 @@ bool Initialize_DirectX()
 	//printf("Finished Initialize_DirectX\n");
 	//printf("oSendP2P: %p\n", (void *)SteamNetworkingFunctions.SendP2PPacketAddress);
 
-	printf("RequestLobbyList:  %p\n", (void*)SteamMatchMakingFunctions.RequestLobbyListAddress);
-	printf("GetLobbyByIndex:  %p\n", (void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress);
+	//printf("RequestLobbyList:  %p\n", (void*)SteamMatchMakingFunctions.RequestLobbyListAddress);
+	//printf("GetLobbyByIndex:  %p\n", (void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress);
 
 
 	return true;
@@ -1269,9 +1333,60 @@ void DrawGradientBox(IDirect3DDevice9* pDevice, float x, float y, float w, float
 	pDevice->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(D3DVERTEX));
 }
 
+float xP(float x)
+{
+	return (d3dViewport.Width / 100) * x;
+}
+float yP(float y)
+{
+	return (d3dViewport.Height / 100) * y;
+}
+
+
 void drawStuff()
 {
+	
+	__asm {
+		mov chardata1, 0
 
+		mov eax, 0x137dc70
+		mov eax, [eax]
+		cmp	eax, 0
+		je ptrZero
+
+		mov eax, [eax+4]
+		cmp eax, 0
+		je ptrZero
+
+		mov eax, [eax]
+		cmp eax, 0
+		je ptrZero
+
+		mov chardata1, eax
+
+		ptrZero:
+	}
+	
+	if (showstats && chardata1)
+	{
+		wstring text = L"";
+		creature *self = (creature*)chardata1;
+		DrawGradientBox(pD3dDevice, 100, 150, 200, 10, C_BLACK, C_BLACK);
+
+		//HP
+		text = to_wstring(self->currHP) + L" / " + to_wstring(self->maxHP);
+		DrawScreenText(giFont, text, xP(15), yP(11.25), C_WHITE);
+
+		//Stam
+		text = to_wstring(self->currStam) + L" / " + to_wstring(self->maxStam);
+		DrawScreenText(giFont, text, xP(15), yP(14.25), C_WHITE);
+
+		for (int i = 0; i < 4; i++)
+		{
+			DrawScreenText(giFont, lastHit[i], xP(10), yP(25 + (i*0.5)), C_WHITE);
+		}
+
+	}
 
 
 }
@@ -1316,6 +1431,7 @@ void Initialize()
 
 	printf("Handle: %p\n", hDarkSouls);
 
+	initInGameFunctions();
 	initSteamFunctions();
 
 	Initialize_DirectX();
@@ -1559,6 +1675,7 @@ DLLEXPORT void __cdecl hotkeyThread(void*)
 				if (hk_NumpadPlus_Pressed == false)
 				{
 					hk_NumpadPlus_Pressed = true;
+					showstats = !showstats;
 
 				}
 			}
