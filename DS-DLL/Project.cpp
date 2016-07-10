@@ -519,20 +519,19 @@ void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 	creature *atk = (creature*)atkChar;
 	creature *def = (creature*)defChar;
 
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < 4; i++)
 	{
 		lastHit[i] = lastHit[i + i];
 	}
 
 
-	//wstring atk = *(wstring*)&atk->modelName;
-	wstring atk;
-	
-	wstring def = *(wstring*)&def->modelName;
-	wstring damage = to_wstring(*dmg);
+
+	wstring atkmod = *(wstring*)&atk->modelName;
+	wstring defmod = *(wstring*)&def->modelName;
 
 
-	lastHit[4] =  atk + L" hit " + def + L" for " + damage;
+	//lastHit[4] = *(wstring*)&atk->modelName + L" hit " + *(wstring*)&def->modelName + L" for " + to_wstring(*dmg);
+	lastHit[4] = atkmod + L" hit " + defmod + L" for " + to_wstring(*dmg);
 	
 
 	__asm {
@@ -1383,7 +1382,7 @@ void drawStuff()
 
 		for (int i = 0; i < 4; i++)
 		{
-			DrawScreenText(giFont, lastHit[i], xP(10), yP(25 + (i*0.5)), C_WHITE);
+			DrawScreenText(giFont, lastHit[i], xP(10), yP(25 + (i*2)), C_WHITE);
 		}
 
 	}
