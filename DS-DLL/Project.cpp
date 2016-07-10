@@ -77,7 +77,6 @@ bool bRunning = false;
 bool gVisible = true;
 
 bool wireframe = false;
-bool packetdump = false;
 bool debugEXE = false;
 byte ver = 0x2e;
 
@@ -85,22 +84,43 @@ ofstream fout("c:\\temp\\DLLout.txt");
 
 
 //Steam Matchmaking Hooks
-typedef void (__thiscall *tRequestLobbyList)(void*);
-typedef void (__thiscall *tGetLobbyByIndex)(void*, UINT *result, int iLobby);
+typedef void(__thiscall *tAddRequestLobbyListNearValueFilter)(void*, char *pchKeyToMatch, int nValueToBeCloseTo);
+typedef void(__thiscall *tAddRequestLobbyListNumericalFilter)(void*, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType);
+typedef void(__thiscall *tAddRequestLobbyListStringFilter)(void*, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType);
+typedef void(__thiscall *tCreateLobby)(void*, UINT eLobbyType, int cMaxMembers);
+typedef UINT64(__thiscall *tGetLobbyByIndex)(void*, UINT *unknown, int iLobby);
+typedef bool(__thiscall *tGetLobbyDataByIndex)(void*, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize);
+typedef void(__thiscall *tJoinLobby)(void*, UINT64 steamIDLobby);
+typedef void(__thiscall *tRequestLobbyList)(void*);
+typedef void(__thiscall *tSendLobbyChatMsg)(void*, UINT64 steamIDLobby, void *pvMsgBody, int cubMsgBody);
 
+void __fastcall hAddRequestLobbyListNearValueFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToBeCloseTo);
+void __fastcall hAddRequestLobbyListNumericalFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType);
+void __fastcall hAddRequestLobbyListStringFilter(void *This, void *notUsed, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType);
+void __fastcall hCreateLobby(void *This, void *notUsed, UINT eLobbyType, int cMaxMembers);
+UINT64 __fastcall hGetLobbyByIndex(void *This, void *notUsed, UINT *unknown, int iLobby);
+bool __fastcall hGetLobbyDataByIndex(void *This, void *notUsed, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize);
+void __fastcall hJoinLobby(void *This, void *notUsed, UINT64 steamIDLobby);
 void __fastcall hRequestLobbyList(void *This, void *notUsed);
-void __fastcall hGetLobbyByIndex(void *This, void *notUsed, UINT *result, int iLobby);
+void __fastcall hSendLobbyChatMsg(void *This, void *notUsed, UINT64 steamIDLobby, void *pvMsgBody, int cubMsgBody);
 
-tRequestLobbyList oRequestLobbyList = NULL;
+tAddRequestLobbyListNearValueFilter oAddRequestLobbyListNearValueFilter = NULL;
+tAddRequestLobbyListNumericalFilter oAddRequestLobbyListNumericalFilter = NULL;
+tAddRequestLobbyListStringFilter oAddRequestLobbyListStringFilter = NULL;
+tCreateLobby oCreateLobby = NULL;
 tGetLobbyByIndex oGetLobbyByIndex = NULL;
+tGetLobbyDataByIndex oGetLobbyDataByIndex = NULL;
+tJoinLobby oJoinLobby = NULL;
+tRequestLobbyList oRequestLobbyList = NULL;
+tSendLobbyChatMsg oSendLobbyChatMsg = NULL;
 
 
 //Steam Networking Hooks
-typedef HRESULT(WINAPI* tReadP2PPacket)(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel);
-typedef HRESULT(WINAPI* tSendP2PPacket)(UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
+typedef void (__thiscall *tReadP2PPacket)(void*, void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel);
+typedef void (__thiscall *tSendP2PPacket)(void*, UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
 
-HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel);
-HRESULT WINAPI hSendP2PPacket(UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
+void __fastcall hReadP2PPacket(void *This, void *unused, void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel);
+void __fastcall hSendP2PPacket(void *This, void *unused, UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
 
 tReadP2PPacket oReadP2PPacket = NULL;
 tSendP2PPacket oSendP2PPacket = NULL;
@@ -182,9 +202,15 @@ tSetViewport oSetViewport = NULL;
 
 struct sSteamMatchmakingFunctions
 {
-	DWORD RequestLobbyListAddress;
+	DWORD AddRequestLobbyListNearValueFilterAddress;
+	DWORD AddRequestLobbyListNumericalFilterAddress;
+	DWORD AddRequestLobbyListStringFilterAddress;
+	DWORD CreateLobbyAddress;
 	DWORD GetLobbyByIndexAddress;
-
+	DWORD GetLobbyDataByIndexAddress;
+	DWORD JoinLobbyAddress;
+	DWORD RequestLobbyListAddress;
+	DWORD SendLobbyChatMsgAddress;
 };
 sSteamMatchmakingFunctions SteamMatchMakingFunctions;
 enum SteamMatchmakingVTable
@@ -428,43 +454,78 @@ struct PacketData
 
 
 //Steam Matchmaking Hooks
-void __fastcall hRequestLobbyList(void* This, void* notUsed)
+void __fastcall hAddRequestLobbyListNearValueFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToBeCloseTo)
+{
+	printf("hAddRequestLobbyListStringFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch, nValueToBeCloseTo);
+
+	oAddRequestLobbyListNearValueFilter(This, pchKeyToMatch, nValueToBeCloseTo);
+}
+void __fastcall hAddRequestLobbyListNumericalFilter(void* This, void *notUsed, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType)
+{
+	printf("hAddRequestLobbyListStringFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch,nValueToMatch);
+
+	oAddRequestLobbyListNumericalFilter(This, pchKeyToMatch, nValueToMatch, eComparisonType);
+}
+void __fastcall hAddRequestLobbyListStringFilter(void* This, void *notUsed, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType)
+{
+	printf("hAddRequestLobbyListStringFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch, pchValueToMatch);
+
+	oAddRequestLobbyListStringFilter(This, pchKeyToMatch, pchValueToMatch, eComparisonType);
+}
+void __fastcall hCreateLobby(void *This, void *notUsed, UINT eLobbyType, int cMaxMembers)
+{
+	printf("hCreateLobby called.  LobbyType: %d, cMaxMembers: %d\n", eLobbyType, cMaxMembers);
+
+	oCreateLobby(This, eLobbyType, cMaxMembers);
+}
+UINT64 __fastcall hGetLobbyByIndex(void* This, void* notUsed, UINT* unknown, int iLobby)
+{
+	//Not sure this one's returning properly
+	//printf("hGetLobbyByIndex called.\n");
+
+	UINT64 tmp = 0;
+	tmp = oGetLobbyByIndex(This, unknown, iLobby);
+
+	printf("hGetLobbyByIndex called.\n", tmp);
+
+	return tmp;
+}
+bool __fastcall hGetLobbyDataByIndex(void *This, void *notUsed, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize)
+{
+	printf("hGetLobbyDataByIndex called - Key: %s, Value: %s.\n", pchKey, pchValue);
+
+	bool tmp = false;
+	tmp = oGetLobbyDataByIndex(This, steamIDLobby, iLobbyData, pchKey, cchKeyBufferSize, pchValue, cchValueBufferSize);
+	return tmp;
+}
+void __fastcall hJoinLobby(void *This, void *notUsed, UINT64 steamIDLobby)
+{
+	printf("hJoinLobby called.  steamIDLobby:  %llu\n", steamIDLobby);
+
+	oJoinLobby(This, steamIDLobby);
+}
+void __fastcall hRequestLobbyList(void *This, void *notUsed)
 {
 	printf("hRequestLobbyList called.\n");
-	
-	
+		
 	oRequestLobbyList(This);
 }
-void __fastcall hGetLobbyByIndex(void* This, void* notUsed, UINT* result, int iLobby)
+void __fastcall hSendLobbyChatMsg(void *This, void *notUsed, UINT64 steamIDLobby, void *pvMsgBody, int cubMsgBody)
 {
-	printf("hGetLobbyByIndex called - result:  %p.\n", result);
+	printf("hSendLobbyChatMsg called - Lobby: %llx, Msg: %s\n", steamIDLobby, pvMsgBody);
 
-	oGetLobbyByIndex(This, result, iLobby);
-
-	//printf("Get Lobby Steam ID:  %16X\n", tmp);
-
+	oSendLobbyChatMsg(This, steamIDLobby, pvMsgBody, cubMsgBody);
 }
+
 
 
 //Steam Networking Hooks
-HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel)
+void __fastcall hReadP2PPacket(void *This, void *unused, void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel)
 {
-	__asm {
-		push ecx
-	}
-
 	//printf("hReadP2PPacket called.\n");
-	
 
 
-
-	__asm {
-		pop ecx
-	}
-
-
-	HRESULT tmp = 0;
-	tmp = oReadP2PPacket(pubDest, cubDest, pcubMsgSize, SteamID, nChannel);
+	oReadP2PPacket(This, pubDest, cubDest, pcubMsgSize, SteamID, nChannel);
 
 	PacketData* packetData = (PacketData*)pubDest;
 
@@ -483,24 +544,12 @@ HRESULT WINAPI hReadP2PPacket(void *pubDest, UINT cubDest, UINT *pcubMsgSize, UI
 	fout << endl;
 
 	//printf("In size, byte #1:  %d, %d\n", cubDest, packetData->bytes[0]);
-
-	return tmp;
 }
-HRESULT WINAPI hSendP2PPacket(UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
+void __fastcall hSendP2PPacket(void* This, void* unused, UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
 {
-	//ecx not preserved by hook, fixed here.
-	__asm {
-		push ecx
-	}
 	//printf("hSendP2PPacket called.\n");
 	
-
-	__asm {
-		pop ecx
-	}
-
-	HRESULT tmp = 0;
-	tmp = oSendP2PPacket(SteamID, pubData, cubData, eP2PSendType, nChannel);
+	oSendP2PPacket(This, SteamID, pubData, cubData, eP2PSendType, nChannel);
 	
 
 	PacketData* packetData = (PacketData*)pubData;
@@ -521,8 +570,6 @@ HRESULT WINAPI hSendP2PPacket(UINT64 SteamID, void *pubData, UINT cubData, UINT 
 	fout << endl;
 
 	//printf("Out size, byte #1:  %d, %d\n", cubData, packetData->bytes[0]);
-	
-	return tmp;
 }
 
 
@@ -837,8 +884,8 @@ void initSteamFunctions()
 	HMODULE steamapiHandle;
 	steamapiHandle = GetModuleHandle(TEXT("steam_api.dll"));
 	
-	DWORD* SteamNetworking;
-	DWORD* SteamMatchmaking;
+	DWORD *SteamNetworking;
+	DWORD *SteamMatchmaking;
 
 
 	__asm {
@@ -849,11 +896,18 @@ void initSteamFunctions()
 			mov eax, [eax]
 			mov SteamMatchmaking, eax
 	}
-	DWORD* pVTable = (DWORD*)(SteamMatchmaking);
+	DWORD *pVTable = (DWORD*)(SteamMatchmaking);
 
-
-	SteamMatchMakingFunctions.RequestLobbyListAddress = pVTable[SteamMatchmakingVTable::RequestLobbyList];
+	SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNearValueFilter];
+	SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNumericalFilter];
+	SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListStringFilter];
+	SteamMatchMakingFunctions.CreateLobbyAddress = pVTable[SteamMatchmakingVTable::CreateLobby];
 	SteamMatchMakingFunctions.GetLobbyByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyByIndex];
+	SteamMatchMakingFunctions.GetLobbyDataByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyDataByIndex];
+	SteamMatchMakingFunctions.JoinLobbyAddress = pVTable[SteamMatchmakingVTable::JoinLobby];
+	SteamMatchMakingFunctions.RequestLobbyListAddress = pVTable[SteamMatchmakingVTable::RequestLobbyList];
+	SteamMatchMakingFunctions.SendLobbyChatMsgAddress = pVTable[SteamMatchmakingVTable::SendLobbyChatMsg];
+	
 	
 
 	__asm {
@@ -895,12 +949,23 @@ DWORD ModuleCheckingThread()
 
 
 	//Steam Matchmaking Hooks
-	*(PDWORD)&oRequestLobbyList = (DWORD)SteamMatchMakingFunctions.RequestLobbyListAddress;
+	*(PDWORD)&oAddRequestLobbyListNumericalFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress;
+	*(PDWORD)&oAddRequestLobbyListStringFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress;
+	*(PDWORD)&oCreateLobby = (DWORD)SteamMatchMakingFunctions.CreateLobbyAddress;
 	*(PDWORD)&oGetLobbyByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyByIndexAddress;
-
-	InsertHook((void*)SteamMatchMakingFunctions.RequestLobbyListAddress, &hRequestLobbyList, &oRequestLobbyList);
+	*(PDWORD)&oGetLobbyDataByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyDataByIndexAddress;
+	*(PDWORD)&oJoinLobby = (DWORD)SteamMatchMakingFunctions.JoinLobbyAddress;
+	*(PDWORD)&oRequestLobbyList = (DWORD)SteamMatchMakingFunctions.RequestLobbyListAddress;
+	*(PDWORD)&oSendLobbyChatMsg = (DWORD)SteamMatchMakingFunctions.SendLobbyChatMsgAddress;
+	
+	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress, &hAddRequestLobbyListNumericalFilter, &oAddRequestLobbyListNumericalFilter);
+	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress, &hAddRequestLobbyListStringFilter, &oAddRequestLobbyListStringFilter);
+	InsertHook((void*)SteamMatchMakingFunctions.CreateLobbyAddress, &hCreateIndexBuffer, &oCreateIndexBuffer);
 	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress, &hGetLobbyByIndex, &oGetLobbyByIndex);
-
+	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyDataByIndexAddress, &hGetLobbyDataByIndex, &oGetLobbyDataByIndex);
+	InsertHook((void*)SteamMatchMakingFunctions.JoinLobbyAddress, &hJoinLobby, &oJoinLobby);
+	InsertHook((void*)SteamMatchMakingFunctions.RequestLobbyListAddress, &hRequestLobbyList, &oRequestLobbyList);
+	InsertHook((void*)SteamMatchMakingFunctions.SendLobbyChatMsgAddress, &hSendLobbyChatMsg, &oSendLobbyChatMsg);
 
 	//Steam Networking Hooks
 	*(PDWORD)&oReadP2PPacket = (DWORD)SteamNetworkingFunctions.ReadP2PPacketAddress;
@@ -1233,8 +1298,7 @@ DLLEXPORT void __cdecl Start(void*)
 
 void Initialize()
 {
-	if (packetdump)
-		fout << "Time,Direction,nChannel,EP2PSendType,SteamID,Size,Contents" << endl;
+	fout << "Time,Direction,nChannel,EP2PSendType,SteamID,Size,Contents" << endl;
 
 	HANDLE hDarkSouls = GetModuleHandleA("DarkSouls.exe");
 
@@ -1266,8 +1330,7 @@ void Initialize()
 void Cleanup()
 {
 	MH_DisableHook(MH_ALL_HOOKS);
-	if (packetdump)
-		fout.close();
+	fout.close();
 }
 void Run()
 {
