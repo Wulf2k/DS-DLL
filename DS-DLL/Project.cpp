@@ -78,7 +78,7 @@ bool gVisible = true;
 
 bool wireframe = false;
 bool debugEXE = false;
-byte ver = 0x2e;
+byte ver = 0x3e;
 
 ofstream fout("c:\\temp\\DLLout.txt");
 
@@ -958,6 +958,8 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oRequestLobbyList = (DWORD)SteamMatchMakingFunctions.RequestLobbyListAddress;
 	*(PDWORD)&oSendLobbyChatMsg = (DWORD)SteamMatchMakingFunctions.SendLobbyChatMsgAddress;
 	
+
+	/*
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress, &hAddRequestLobbyListNumericalFilter, &oAddRequestLobbyListNumericalFilter);
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress, &hAddRequestLobbyListStringFilter, &oAddRequestLobbyListStringFilter);
 	InsertHook((void*)SteamMatchMakingFunctions.CreateLobbyAddress, &hCreateIndexBuffer, &oCreateIndexBuffer);
@@ -966,14 +968,18 @@ DWORD ModuleCheckingThread()
 	InsertHook((void*)SteamMatchMakingFunctions.JoinLobbyAddress, &hJoinLobby, &oJoinLobby);
 	InsertHook((void*)SteamMatchMakingFunctions.RequestLobbyListAddress, &hRequestLobbyList, &oRequestLobbyList);
 	InsertHook((void*)SteamMatchMakingFunctions.SendLobbyChatMsgAddress, &hSendLobbyChatMsg, &oSendLobbyChatMsg);
+	*/
+
 
 	//Steam Networking Hooks
 	*(PDWORD)&oReadP2PPacket = (DWORD)SteamNetworkingFunctions.ReadP2PPacketAddress;
 	*(PDWORD)&oSendP2PPacket = (DWORD)SteamNetworkingFunctions.SendP2PPacketAddress;
 
+
+	/*
 	InsertHook((void*)SteamNetworkingFunctions.ReadP2PPacketAddress, &hReadP2PPacket, &oReadP2PPacket);
 	InsertHook((void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
-
+	*/
 
 	//D3D9 Hooks
 	*(PDWORD)&oBeginScene = (DWORD)DXFunctions.BeginSceneAddress;
