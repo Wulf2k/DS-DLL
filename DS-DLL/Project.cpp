@@ -83,9 +83,10 @@ bool showstats = false;
 wstring lastAtk[5] = { L"x",L"x",L"x",L"x",L"x" };
 wstring lastDef[5] = { L"x",L"x",L"x",L"x",L"x" };
 float lastDmg[5] = { 0, 0, 0, 0, 0 };
+UINT *lastenemy = 0;
 byte ver = 0x3e;
 
-DWORD *chardata1 = NULL;
+UINT *chardata1 = NULL;
 
 ofstream fout("c:\\temp\\DLLout.txt");
 
@@ -515,14 +516,16 @@ struct LoadedCreatures
 //In-Game Function Hooks
 void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 {
-	UINT *defChar;
-
+	UINT *defChar = NULL;
 
 	__asm {
 		mov defChar, eax
 		push eax
 	}
 
+
+	if (!(defChar == lastenemy) && !(defChar == chardata1) && defChar)
+		lastenemy = defChar;
 	
 	
 	creature *atk = (creature*)atkChar;
@@ -536,19 +539,9 @@ void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 		lastDmg[i] = lastDmg[i + 1];
 	}
 	
-	//wchar_t buffer[80] = L"";
-	//wcscat_s(buffer, atk->modelName);
-	//*(wstring*)&atk->modelName + L" hit " + *(wstring*)&def->modelName + L" for " + to_wstring(*dmg);
-	//printf("%p\n", &buffer);
-
-
-	//lastHit[4] = *(wstring*)&atk->modelName + L" hit " + *(wstring*)&def->modelName + L" for " + to_wstring(*dmg);
-	//lastHit[4] = wstring(buffer);
-	
 	lastAtk[4] = *(wstring*)&atk->modelName;
 	lastDef[4] = *(wstring*)&def->modelName;
 	lastDmg[4] = (float)(*dmg);
-	//printf(".\n");
 
 	__asm {
 		pop eax
@@ -1386,7 +1379,8 @@ void drawStuff()
 	{
 		wstring text = L"";
 		creature *self = (creature*)chardata1;
-		DrawGradientBox(pD3dDevice, 100, 150, 200, 10, C_BLACK, C_BLACK);
+		creature *target = (creature*)lastenemy;
+		
 
 		//HP
 		text = to_wstring(self->currHP) + L" / " + to_wstring(self->maxHP);
@@ -1397,11 +1391,28 @@ void drawStuff()
 		DrawScreenText(giFont, text, xP(15), yP(14.25), C_WHITE);
 
 		
+		/*Display 5 last hits
 		for (int i = 0; i < 5; i++)
 		{
 			text = lastAtk[i] + L" hit " + lastDef[i] + L" for " + to_wstring(lastDmg[i]) + L" damage.";
 			DrawScreenText(giFont, text, xP(10), yP(25 + (i*2)), C_WHITE);
 		}
+		*/
+
+		if (lastenemy)
+		{
+			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(15), yP(40), C_BLACK, C_BLACK);
+
+			text = target->modelName;
+			DrawScreenText(giFont, text, xP(4), yP(26), C_WHITE);
+
+			text = L"HP: " + to_wstring(target->currHP) + L" / " + to_wstring(target->maxHP);
+			DrawScreenText(giFont, text, xP(4), yP(28), C_WHITE);
+
+			text = L"Stam: " + to_wstring(target->currStam) + L" / " + to_wstring(target->maxStam);
+			DrawScreenText(giFont, text, xP(4), yP(30), C_WHITE);
+		}
+		
 
 	}
 
