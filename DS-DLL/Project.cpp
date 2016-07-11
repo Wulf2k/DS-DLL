@@ -70,6 +70,10 @@ void drawStuff();
 #define C_DARKGRAY D3DCOLOR_RGBA(100,100,100,255)
 #define C_TRANSBLACK D3DCOLOR_RGBA(0, 0, 0, 100)
 #define C_TRANSGRAY D3DCOLOR_RGBA(128, 128, 128, 128)
+#define C_VIOLET D3DCOLOR_RGBA(0xBF, 0x5F, 0xFF, 0xFF)
+#define C_INDIGO D3DCOLOR_RGBA(0x4B, 0, 0x82, 0xFF)
+#define C_RED D3DCOLOR_RGBA(0xFF, 0, 0, 0xFF)
+#define C_PURPLE D3DCOLOR_RGBA(0x82, 0x0B, 0xBB, 0xFF)
 
 
 int fontSize = FONT_SIZE_1080;
@@ -490,7 +494,9 @@ struct creature
 	charLocData* loc;
 	BYTE unk2[0xC];
 	wchar_t modelName[0x8];
-	BYTE unk3[0x28];
+	BYTE unk3[0x1C];
+	int NPCID;
+	BYTE unk[0x8];
 	int PhantomType;
 	int TeamType;
 	BYTE unk4[0x25C];
@@ -499,6 +505,15 @@ struct creature
 	BYTE unk5[0x8];
 	int currStam;
 	int maxStam;
+	BYTE unk6[0x14];
+	int currentPoisonResist;
+	int currentToxicResist;
+	int currentBleedResist;
+	int currentCurseResist;
+	int maxPoisonResist;
+	int maxToxicResist;
+	int maxBleedResist;
+	int maxCurseResist;
 };
 
 
@@ -539,9 +554,14 @@ void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 		lastDmg[i] = lastDmg[i + 1];
 	}
 	
-	lastAtk[4] = *(wstring*)&atk->modelName;
-	lastDef[4] = *(wstring*)&def->modelName;
-	lastDmg[4] = (float)(*dmg);
+
+	if (atkChar && defChar)
+	{
+		lastAtk[4] = *(wstring*)&atk->modelName;
+		lastDef[4] = *(wstring*)&def->modelName;
+		lastDmg[4] = (float)(*dmg);
+	}
+
 
 	__asm {
 		pop eax
@@ -1353,7 +1373,11 @@ float yP(float y)
 
 void drawStuff()
 {
-	
+	bool wf = wireframe;
+
+	if (wf)
+		wireframe = !wireframe;
+
 	__asm {
 		mov chardata1, 0
 
@@ -1380,6 +1404,9 @@ void drawStuff()
 		wstring text = L"";
 		creature *self = (creature*)chardata1;
 		creature *target = (creature*)lastenemy;
+
+		if (self->currHP < 1)
+			lastenemy = NULL;
 		
 
 		//HP
@@ -1401,22 +1428,50 @@ void drawStuff()
 
 		if (lastenemy)
 		{
-			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(15), yP(40), C_BLACK, C_BLACK);
+			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(9), yP(26), C_BLACK, C_BLACK);
 
 			text = target->modelName;
 			DrawScreenText(giFont, text, xP(4), yP(26), C_WHITE);
 
 			text = L"HP: " + to_wstring(target->currHP) + L" / " + to_wstring(target->maxHP);
 			DrawScreenText(giFont, text, xP(4), yP(28), C_WHITE);
-
 			text = L"Stam: " + to_wstring(target->currStam) + L" / " + to_wstring(target->maxStam);
 			DrawScreenText(giFont, text, xP(4), yP(30), C_WHITE);
-		}
-		
 
+			text = L"TeamType: " + to_wstring(target->TeamType);
+			DrawScreenText(giFont, text, xP(4), yP(34), C_WHITE);
+			
+			text = L"NPC ID: " + to_wstring(target->NPCID);
+			DrawScreenText(giFont, text, xP(4), yP(36), C_WHITE);
+
+
+			text = L"Resists";
+			DrawScreenText(giFont, text, xP(4), yP(40), C_WHITE);
+			text = L"P: " + to_wstring(target->currentPoisonResist);
+			DrawScreenText(giFont, text, xP(4), yP(42), C_VIOLET);
+			text = L"T: " + to_wstring(target->currentToxicResist);
+			DrawScreenText(giFont, text, xP(4), yP(44), C_PURPLE);
+			text = L"B: " + to_wstring(target->currentBleedResist);
+			DrawScreenText(giFont, text, xP(4), yP(46), C_RED);
+			text = L"C: " + to_wstring(target->currentToxicResist);
+			DrawScreenText(giFont, text, xP(4), yP(48), C_DARKGRAY);
+
+
+
+
+			printf("Memloc: %p\n", lastenemy);
+
+
+
+			text = lastAtk[4] + L" hit " + lastDef[4] + L" with an attack power of " + to_wstring(lastDmg[4]);
+			DrawScreenText(giFont, text, xP(2), yP(99), C_WHITE);
+
+
+		}
 	}
 
-
+	if (wf)
+		wireframe = !wireframe;
 }
 
 
