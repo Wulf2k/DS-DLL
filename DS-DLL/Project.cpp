@@ -485,43 +485,51 @@ struct PacketData
 struct charPos
 {
 	unsigned int unk1;
-	float facing;
+	float facing;				//0x0004
 	BYTE unk2[0x8];
-	float xPos;
-	float yPos;
-	float zPos;
+	float xPos;					//0x0010
+	float yPos;					//0x0014
+	float zPos;					//0x0018
 };
 struct charLocData
 {
-	BYTE unk1[0x1c];
-	charPos* pos;
+	BYTE unk1[0x1C];
+	charPos *pos;				//0x001C
 };
-struct creature
+struct creatureData2
+{
+	
+};
+struct creatureData1
 {
 	BYTE unk1[0x28];
-	charLocData* loc;
+	charLocData *loc;			//0x0028
 	BYTE unk2[0xC];
-	wchar_t modelName[0x8];
+	wchar_t modelName[0x8];		//0x0038
 	BYTE unk3[0x1C];
-	int NPCID;
-	BYTE unk[0x8];
-	int PhantomType;
-	int TeamType;
-	BYTE unk4[0x25C];
-	int currHP;
-	int maxHP;
-	BYTE unk5[0x8];
-	int currStam;
-	int maxStam;
-	BYTE unk6[0x14];
-	int currentPoisonResist;
-	int currentToxicResist;
-	int currentBleedResist;
-	int currentCurseResist;
-	int maxPoisonResist;
-	int maxToxicResist;
-	int maxBleedResist;
-	int maxCurseResist;
+	int NPCID;					//?0x0064 - confirm that's right
+	BYTE unk4[0x8];
+	int PhantomType;			//0x0070
+	int TeamType;				//0x0074
+	BYTE unk5[0x25C];
+	int currHP;					//0x02D4
+	int maxHP;					//0x02D8
+	BYTE unk6[0x8];
+	int currStam;				//0x02E4
+	int maxStam;				//0x02E8
+	BYTE unk7[0x14];
+	int currentPoisonResist;	//0x0300
+	int currentToxicResist;		//0x0304
+	int currentBleedResist;		//0x0308
+	int currentCurseResist;		//0x030C
+	int maxPoisonResist;		//0x0310
+	int maxToxicResist;			//0x0314
+	int maxBleedResist;			//0x0318
+	int maxCurseResist;			//0x031C
+	BYTE unk8[0xF4];
+	creatureData2 *cdata2;		//0x0414
+	BYTE unk9[0x4];
+	int AIID;					//0x041C
 };
 
 
@@ -529,8 +537,8 @@ struct creature
 struct LoadedCreatures
 {
 	PVOID pUnknown;             // 0x137DC70
-	creature* firstCreature;    // +4
-	creature* lastCreature;     // +8
+	creatureData1 *firstCreature;    // +4
+	creatureData1 *lastCreature;     // +8
 };
 
 
@@ -551,8 +559,8 @@ void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 		lastenemy = defChar;
 	
 	
-	creature *atk = (creature*)atkChar;
-	creature *def = (creature*)defChar;
+	creatureData1 *atk = (creatureData1*)atkChar;
+	creatureData1 *def = (creatureData1*)defChar;
 
 
 	for (int i = 0; i < 4; i++)
@@ -1430,8 +1438,8 @@ void drawStuff()
 	if (showstats && chardata1)
 	{
 		wstring text = L"";
-		creature *self = (creature*)chardata1;
-		creature *target = (creature*)lastenemy;
+		creatureData1 *self = (creatureData1*)chardata1;
+		creatureData1 *target = (creatureData1*)lastenemy;
 
 		if (self->currHP < 1)
 			lastenemy = NULL;
