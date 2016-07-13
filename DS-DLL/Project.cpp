@@ -107,6 +107,7 @@ typedef void(__thiscall *tAddRequestLobbyListNumericalFilter)(void*, char *pchKe
 typedef void(__thiscall *tAddRequestLobbyListStringFilter)(void*, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType);
 typedef void(__thiscall *tCreateLobby)(void*, UINT eLobbyType, int cMaxMembers);
 typedef UINT64(__thiscall *tGetLobbyByIndex)(void*, UINT *unknown, int iLobby);
+typedef int(__thiscall *tGetLobbyChatEntry)(void*, int iChatID, UINT64 *pSteamIDUser, void *pvData, int cubData, UINT *peChatEntryType);
 typedef bool(__thiscall *tGetLobbyDataByIndex)(void*, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize);
 typedef void(__thiscall *tJoinLobby)(void*, UINT64 steamIDLobby);
 typedef void(__thiscall *tRequestLobbyList)(void*);
@@ -117,6 +118,7 @@ void __fastcall hAddRequestLobbyListNumericalFilter(void *This, void *notUsed, c
 void __fastcall hAddRequestLobbyListStringFilter(void *This, void *notUsed, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType);
 void __fastcall hCreateLobby(void *This, void *notUsed, UINT eLobbyType, int cMaxMembers);
 UINT64 __fastcall hGetLobbyByIndex(void *This, void *notUsed, UINT *unknown, int iLobby);
+int __fastcall hGetLobbyChatEntry(void *This, void *notUsed, int iChatID, UINT64 *pSteamIDUser, void *pvData, int cubData, UINT *peChatEntryType);
 bool __fastcall hGetLobbyDataByIndex(void *This, void *notUsed, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize);
 void __fastcall hJoinLobby(void *This, void *notUsed, UINT64 steamIDLobby);
 void __fastcall hRequestLobbyList(void *This, void *notUsed);
@@ -127,6 +129,7 @@ tAddRequestLobbyListNumericalFilter oAddRequestLobbyListNumericalFilter = NULL;
 tAddRequestLobbyListStringFilter oAddRequestLobbyListStringFilter = NULL;
 tCreateLobby oCreateLobby = NULL;
 tGetLobbyByIndex oGetLobbyByIndex = NULL;
+tGetLobbyChatEntry oGetLobbyChatEntry = NULL;
 tGetLobbyDataByIndex oGetLobbyDataByIndex = NULL;
 tJoinLobby oJoinLobby = NULL;
 tRequestLobbyList oRequestLobbyList = NULL;
@@ -231,6 +234,7 @@ struct sSteamMatchmakingFunctions
 	DWORD AddRequestLobbyListStringFilterAddress;
 	DWORD CreateLobbyAddress;
 	DWORD GetLobbyByIndexAddress;
+	DWORD GetLobbyChatEntryAddress;
 	DWORD GetLobbyDataByIndexAddress;
 	DWORD JoinLobbyAddress;
 	DWORD RequestLobbyListAddress;
@@ -605,6 +609,14 @@ UINT64 __fastcall hGetLobbyByIndex(void* This, void* notUsed, UINT* unknown, int
 
 	printf("hGetLobbyByIndex called.\n", tmp);
 
+	return tmp;
+}
+int __fastcall hGetLobbyChatEntry(void *This, void *notUsed, int iChatID, UINT64 *pSteamIDUser, void *pvData, int cubData, UINT *peChatEntryType)
+{
+	printf("hGetLobbyChatEntry called.\n");
+
+	int tmp = 0;
+	tmp = oGetLobbyChatEntry(This, iChatID, pSteamIDUser, pvData, cubData, peChatEntryType);
 	return tmp;
 }
 bool __fastcall hGetLobbyDataByIndex(void *This, void *notUsed, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize)
@@ -1002,6 +1014,7 @@ void initSteamFunctions()
 	SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListStringFilter];
 	SteamMatchMakingFunctions.CreateLobbyAddress = pVTable[SteamMatchmakingVTable::CreateLobby];
 	SteamMatchMakingFunctions.GetLobbyByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyByIndex];
+	SteamMatchMakingFunctions.GetLobbyChatEntryAddress = pVTable[SteamMatchmakingVTable::GetLobbyChatEntry];
 	SteamMatchMakingFunctions.GetLobbyDataByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyDataByIndex];
 	SteamMatchMakingFunctions.JoinLobbyAddress = pVTable[SteamMatchmakingVTable::JoinLobby];
 	SteamMatchMakingFunctions.RequestLobbyListAddress = pVTable[SteamMatchmakingVTable::RequestLobbyList];
@@ -1083,6 +1096,7 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oAddRequestLobbyListStringFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress;
 	*(PDWORD)&oCreateLobby = (DWORD)SteamMatchMakingFunctions.CreateLobbyAddress;
 	*(PDWORD)&oGetLobbyByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyByIndexAddress;
+	*(PDWORD)&oGetLobbyChatEntry = (DWORD)SteamMatchMakingFunctions.GetLobbyChatEntryAddress;
 	*(PDWORD)&oGetLobbyDataByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyDataByIndexAddress;
 	*(PDWORD)&oJoinLobby = (DWORD)SteamMatchMakingFunctions.JoinLobbyAddress;
 	*(PDWORD)&oRequestLobbyList = (DWORD)SteamMatchMakingFunctions.RequestLobbyListAddress;
@@ -1094,6 +1108,7 @@ DWORD ModuleCheckingThread()
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress, &hAddRequestLobbyListStringFilter, &oAddRequestLobbyListStringFilter);
 	InsertHook((void*)SteamMatchMakingFunctions.CreateLobbyAddress, &hCreateIndexBuffer, &oCreateIndexBuffer);
 	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress, &hGetLobbyByIndex, &oGetLobbyByIndex);
+	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyChatEntryAddress, &hGetLobbyChatEntry, &oGetLobbyChatEntry);
 	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyDataByIndexAddress, &hGetLobbyDataByIndex, &oGetLobbyDataByIndex);
 	InsertHook((void*)SteamMatchMakingFunctions.JoinLobbyAddress, &hJoinLobby, &oJoinLobby);
 	InsertHook((void*)SteamMatchMakingFunctions.RequestLobbyListAddress, &hRequestLobbyList, &oRequestLobbyList);
