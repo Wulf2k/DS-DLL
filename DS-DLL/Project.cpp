@@ -105,6 +105,7 @@ tDS_LandHit oDS_LandHit = NULL;
 typedef void(__thiscall *tAddRequestLobbyListDistanceFilter)(void*, UINT eLobbyDistanceFilter);
 typedef void(__thiscall *tAddRequestLobbyListNearValueFilter)(void*, char *pchKeyToMatch, int nValueToBeCloseTo);
 typedef void(__thiscall *tAddRequestLobbyListNumericalFilter)(void*, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType);
+typedef void(__thiscall *tAddRequestLobbyListResultCountFilter)(void*, int cMaxResults);
 typedef void(__thiscall *tAddRequestLobbyListStringFilter)(void*, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType);
 typedef void(__thiscall *tCreateLobby)(void*, UINT eLobbyType, int cMaxMembers);
 typedef UINT64(__thiscall *tGetLobbyByIndex)(void*, UINT *unknown, int iLobby);
@@ -120,6 +121,7 @@ typedef void(__thiscall *tSendLobbyChatMsg)(void*, UINT64 steamIDLobby, void *pv
 void __fastcall hddRequestLobbyListDistanceFilter(void* This, void *notUsed, UINT eLobbyDistanceFilter);
 void __fastcall hAddRequestLobbyListNearValueFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToBeCloseTo);
 void __fastcall hAddRequestLobbyListNumericalFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType);
+void __fastcall hAddRequestLobbyListResultCountFilter(void* This, void *notUsed, int cMaxResults);
 void __fastcall hAddRequestLobbyListStringFilter(void *This, void *notUsed, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType);
 void __fastcall hCreateLobby(void *This, void *notUsed, UINT eLobbyType, int cMaxMembers);
 UINT64 __fastcall hGetLobbyByIndex(void *This, void *notUsed, UINT *unknown, int iLobby);
@@ -135,6 +137,7 @@ void __fastcall hSendLobbyChatMsg(void *This, void *notUsed, UINT64 steamIDLobby
 tAddRequestLobbyListDistanceFilter oAddRequestLobbyListDistanceFilter = NULL;
 tAddRequestLobbyListNearValueFilter oAddRequestLobbyListNearValueFilter = NULL;
 tAddRequestLobbyListNumericalFilter oAddRequestLobbyListNumericalFilter = NULL;
+tAddRequestLobbyListResultCountFilter oAddRequestLobbyListResultCountFilter = NULL;
 tAddRequestLobbyListStringFilter oAddRequestLobbyListStringFilter = NULL;
 tCreateLobby oCreateLobby = NULL;
 tGetLobbyByIndex oGetLobbyByIndex = NULL;
@@ -244,6 +247,7 @@ struct sSteamMatchmakingFunctions
 	DWORD AddRequestLobbyListDistanceFilterAddress;
 	DWORD AddRequestLobbyListNearValueFilterAddress;
 	DWORD AddRequestLobbyListNumericalFilterAddress;
+	DWORD AddRequestLobbyListResultCountFilterAddress;
 	DWORD AddRequestLobbyListStringFilterAddress;
 	DWORD CreateLobbyAddress;
 	DWORD GetLobbyByIndexAddress;
@@ -601,21 +605,27 @@ void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 //Steam Matchmaking Hooks
 void __fastcall hddRequestLobbyListDistanceFilter(void* This, void *notUsed, UINT eLobbyDistanceFilter)
 {
-	printf("hAddRequestLobbyListDistanceFilter called.\n");
+	printf("hAddRequestLobbyListDistanceFilter called - eLobbyDistanceFilter:  %d\n", eLobbyDistanceFilter);
 
 	oAddRequestLobbyListDistanceFilter(This, eLobbyDistanceFilter);
 }
 void __fastcall hAddRequestLobbyListNearValueFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToBeCloseTo)
 {
-	printf("hAddRequestLobbyListStringFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch, nValueToBeCloseTo);
+	printf("hAddRequestLobbyListNearValueFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch, nValueToBeCloseTo);
 
 	oAddRequestLobbyListNearValueFilter(This, pchKeyToMatch, nValueToBeCloseTo);
 }
 void __fastcall hAddRequestLobbyListNumericalFilter(void* This, void *notUsed, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType)
 {
-	printf("hAddRequestLobbyListStringFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch,nValueToMatch);
+	printf("hAddRequestLobbyListNumericalFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch,nValueToMatch);
 
 	oAddRequestLobbyListNumericalFilter(This, pchKeyToMatch, nValueToMatch, eComparisonType);
+}
+void __fastcall hAddRequestLobbyListResultCountFilter(void* This, void *notUsed, int cMaxResults)
+{
+	printf("hAddRequestLobbyListResultCountFilter called - cMaxResults:  %d", cMaxResults);
+
+	oAddRequestLobbyListResultCountFilter(This, cMaxResults);
 }
 void __fastcall hAddRequestLobbyListStringFilter(void* This, void *notUsed, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType)
 {
@@ -637,7 +647,7 @@ UINT64 __fastcall hGetLobbyByIndex(void* This, void* notUsed, UINT* unknown, int
 	UINT64 tmp = 0;
 	tmp = oGetLobbyByIndex(This, unknown, iLobby);
 
-	printf("hGetLobbyByIndex called.\n", tmp);
+	printf("hGetLobbyByIndex called - steamIDLobby: %llu\n", tmp);
 
 	return tmp;
 }
@@ -659,18 +669,20 @@ bool __fastcall hGetLobbyDataByIndex(void *This, void *notUsed, UINT64 steamIDLo
 }
 UINT64 __fastcall hGetLobbyMemberByIndex(void *This, void *notUsed, UINT steamIDLobby, int iMember)
 {
-	printf("hGetLobbyMemberByIndex called.\n");
-
 	UINT64 tmp = 0;
 	tmp = oGetLobbyMemberByIndex(This, steamIDLobby, iMember);
+
+	printf("hGetLobbyMemberByIndex called - iMember:  %llu.\n", tmp);
+
 	return tmp;
 }
 int __fastcall hGetNumLobbyMembers(void *This, void *notUsed, UINT64 steamIDLobby)
 {
-
-	printf("hGetNumLobbyMembers called.\n");
 	int tmp = 0;
 	tmp = oGetNumLobbyMembers(This, steamIDLobby);
+
+	printf("hGetNumLobbyMembers called - steamIDLobby, Members:  %llu, %d\n", steamIDLobby, tmp);
+
 	return tmp;
 }
 void __fastcall hJoinLobby(void *This, void *notUsed, UINT64 steamIDLobby)
@@ -1064,6 +1076,7 @@ void initSteamFunctions()
 	SteamMatchMakingFunctions.AddRequestLobbyListDistanceFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListDistanceFilter];
 	SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNearValueFilter];
 	SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNumericalFilter];
+	SteamMatchMakingFunctions.AddRequestLobbyListResultCountFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListResultCountFilter];
 	SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListStringFilter];
 	SteamMatchMakingFunctions.CreateLobbyAddress = pVTable[SteamMatchmakingVTable::CreateLobby];
 	SteamMatchMakingFunctions.GetLobbyByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyByIndex];
@@ -1149,7 +1162,9 @@ DWORD ModuleCheckingThread()
 
 	//Steam Matchmaking Hooks
 	*(PDWORD)&oAddRequestLobbyListDistanceFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListDistanceFilterAddress;
+	*(PDWORD)&oAddRequestLobbyListNearValueFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress;
 	*(PDWORD)&oAddRequestLobbyListNumericalFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress;
+	*(PDWORD)&oAddRequestLobbyListResultCountFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListResultCountFilterAddress;
 	*(PDWORD)&oAddRequestLobbyListStringFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress;
 	*(PDWORD)&oCreateLobby = (DWORD)SteamMatchMakingFunctions.CreateLobbyAddress;
 	*(PDWORD)&oGetLobbyByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyByIndexAddress;
@@ -1165,7 +1180,9 @@ DWORD ModuleCheckingThread()
 
 	/*
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListDistanceFilterAddress, &hAddRequestLobbyListDistanceFilter, &oAddRequestLobbyListDistanceFilter);
+	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress, &hAddRequestLobbyListNearValueFilter, &oAddRequestLobbyListNearValueFilter);
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress, &hAddRequestLobbyListNumericalFilter, &oAddRequestLobbyListNumericalFilter);
+	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListResultCountFilterAddress, &hAddRequestLobbyListResultCountFilter, &oAddRequestLobbyListResultCountFilter);
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress, &hAddRequestLobbyListStringFilter, &oAddRequestLobbyListStringFilter);
 	InsertHook((void*)SteamMatchMakingFunctions.CreateLobbyAddress, &hCreateIndexBuffer, &oCreateIndexBuffer);
 	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress, &hGetLobbyByIndex, &oGetLobbyByIndex);
