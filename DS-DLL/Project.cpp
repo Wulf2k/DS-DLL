@@ -112,7 +112,7 @@ Do these right later
 
 
 //Steam Matchmaking Hooks
-typedef DWORD SteamAPICall_t;
+typedef UINT SteamAPICall_t;
 typedef UINT64 CSteamID;
 typedef void(__thiscall *tAddRequestLobbyListCompatibleMembersFilter)(void*, UINT64 steamIDLobby);
 typedef void(__thiscall *tAddRequestLobbyListDistanceFilter)(void*, UINT eLobbyDistanceFilter);
