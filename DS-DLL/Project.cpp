@@ -88,7 +88,6 @@ wstring lastAtk[5] = { L"x",L"x",L"x",L"x",L"x" };
 wstring lastDef[5] = { L"x",L"x",L"x",L"x",L"x" };
 float lastDmg[5] = { 0, 0, 0, 0, 0 };
 UINT *lastenemy = 0;
-byte ver = 0x3e;
 
 UINT *chardata1 = NULL;
 
@@ -126,7 +125,7 @@ typedef UINT64(__thiscall *tGetLobbyByIndex)(void*, UINT *unknown, int iLobby);
 typedef int(__thiscall *tGetLobbyChatEntry)(void*, int iChatID, UINT64 *pSteamIDUser, void *pvData, int cubData, UINT *peChatEntryType);
 typedef char*(__thiscall *tGetLobbyData)(void*, UINT64 steamIDLobby, char *pchKey);
 typedef bool(__thiscall *tGetLobbyDataByIndex)(void*, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize);
-typedef char*(__thiscall *tGetLobbyMemberData)(void*, UINT64 stemIDLobby, UINT64 steamIDUser, char *pchKey);
+typedef char*(__thiscall *tGetLobbyMemberData)(void*, UINT64 steamIDLobby, UINT64 steamIDUser, char *pchKey);
 typedef UINT64(__thiscall *tGetLobbyMemberByIndex)(void*, UINT steamIDLobby, int iMember);
 typedef int(__thiscall *tGetNumLobbyMembers)(void*, UINT64 steamIDLobby);
 typedef void(__thiscall *tInviteUserToLobby)(void*, UINT64 steamIDLobby, UINT64 steamIDInvitee);
@@ -562,9 +561,8 @@ struct creatureData1
 	charLocData *loc;			//0x0028
 	BYTE unk2[0xC];
 	wchar_t modelName[0x8];		//0x0038
-	BYTE unk3[0x1C];
-	int NPCID;					//?0x0064 - confirm that's right
-	BYTE unk4[0x8];
+	int NPCID;					//0x0068
+	BYTE unk4[0x4];
 	int PhantomType;			//0x0070
 	int TeamType;				//0x0074
 	BYTE unk5[0x25C];
@@ -645,7 +643,7 @@ void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 //Steam Matchmaking Hooks
 void __fastcall hAddRequestLobbyListCompatibleMembersFilter(void *This, void *notUsed, UINT64 steamIDLobby)
 {
-	printf("hAddRequestLobbyListCompatibleMembersFilter called - steamIDLobby:  %llu\n", steamIDLobby);
+	printf("hAddRequestLobbyListCompatibleMembersFilter called - steamIDLobby:  %llx\n", steamIDLobby);
 
 	oAddRequestLobbyListCompatibleMembersFilter(This, steamIDLobby);
 }
@@ -675,7 +673,7 @@ void __fastcall hAddRequestLobbyListNumericalFilter(void* This, void *notUsed, c
 }
 void __fastcall hAddRequestLobbyListResultCountFilter(void* This, void *notUsed, int cMaxResults)
 {
-	printf("hAddRequestLobbyListResultCountFilter called - cMaxResults:  %d", cMaxResults);
+	printf("hAddRequestLobbyListResultCountFilter called - cMaxResults:  %d\n", cMaxResults);
 
 	oAddRequestLobbyListResultCountFilter(This, cMaxResults);
 }
@@ -702,7 +700,7 @@ UINT64 __fastcall hGetLobbyByIndex(void* This, void* notUsed, UINT* unknown, int
 	UINT64 tmp = 0;
 	tmp = oGetLobbyByIndex(This, unknown, iLobby);
 
-	printf("hGetLobbyByIndex called - steamIDLobby: %llu\n", tmp);
+	printf("hGetLobbyByIndex called - steamIDLobby: %llx\n", tmp);
 
 	return tmp;
 }
@@ -719,7 +717,7 @@ char* __fastcall hGetLobbyData(void *This, void *notUsed, UINT64 steamIDLobby, c
 	char *tmp;
 	tmp = oGetLobbyData(This, steamIDLobby, pchKey);
 
-	printf("hGetLobbyData called - steamIDLobby, Key, Value:  %llu, %s, %s\n", steamIDLobby, pchKey, tmp);
+	printf("hGetLobbyData called - steamIDLobby, Key, Value:  %llx, %s, %s\n", steamIDLobby, pchKey, tmp);
 	return tmp;
 }
 bool __fastcall hGetLobbyDataByIndex(void *This, void *notUsed, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize)
@@ -735,17 +733,19 @@ UINT64 __fastcall hGetLobbyMemberByIndex(void *This, void *notUsed, UINT steamID
 	UINT64 tmp = 0;
 	tmp = oGetLobbyMemberByIndex(This, steamIDLobby, iMember);
 
-	printf("hGetLobbyMemberByIndex called - iMember:  %llu.\n", tmp);
+	printf("hGetLobbyMemberByIndex called - iMember:  %llx.\n", tmp);
 
 	return tmp;
 }
 char* __fastcall hGetLobbyMemberData(void *This, void *notUsed, UINT64 steamIDLobby, UINT64 steamIDUser, char *pchKey)
 {
+	
 	char *tmp;
 	tmp = oGetLobbyMemberData(This, steamIDLobby, steamIDUser, pchKey);
 
-	printf("hGetLobbyMemberData called - steamIDLobby, steamIDUser, pchKey:  %llu, %llu, %s\n", steamIDLobby, steamIDUser, pchKey);
+	printf("hGetLobbyMemberData called - steamIDLobby, steamIDUser, pchKey:  %llx, %llx, %p\n", steamIDLobby, steamIDUser, pchKey);
 
+	
 	return tmp;
 }
 int __fastcall hGetNumLobbyMembers(void *This, void *notUsed, UINT64 steamIDLobby)
@@ -753,25 +753,25 @@ int __fastcall hGetNumLobbyMembers(void *This, void *notUsed, UINT64 steamIDLobb
 	int tmp = 0;
 	tmp = oGetNumLobbyMembers(This, steamIDLobby);
 
-	printf("hGetNumLobbyMembers called - steamIDLobby, Members:  %llu, %d\n", steamIDLobby, tmp);
+	printf("hGetNumLobbyMembers called - steamIDLobby, Members:  %llx, %d\n", steamIDLobby, tmp);
 
 	return tmp;
 }
 void __fastcall hInviteUserToLobby(void *This, void *notUsed, UINT64 steamIDLobby, UINT64 steamIDInvitee)
 {
-	printf("hInviteUserToLobby called - steamIDLobby, steamIDInvitee:  %llu, %llu\n", steamIDLobby, steamIDInvitee);
+	printf("hInviteUserToLobby called - steamIDLobby, steamIDInvitee:  %llx, %llx\n", steamIDLobby, steamIDInvitee);
 
 	oInviteUserToLobby(This, steamIDLobby, steamIDInvitee);
 }
 void __fastcall hJoinLobby(void *This, void *notUsed, UINT64 steamIDLobby)
 {
-	printf("hJoinLobby called.  steamIDLobby:  %llu\n", steamIDLobby);
+	printf("hJoinLobby called.  steamIDLobby:  %llx\n", steamIDLobby);
 
 	oJoinLobby(This, steamIDLobby);
 }
 void __fastcall hLeaveLobby(void* This, void *notUsed, UINT64 steamIDLobby)
 {
-	printf("hLeaveLobby called.  steamIDLobby:  %llu\n", steamIDLobby);
+	printf("hLeaveLobby called.  steamIDLobby:  %llx\n", steamIDLobby);
 
 	oLeaveLobby(This, steamIDLobby);
 }
@@ -792,13 +792,13 @@ bool __fastcall hSetLobbyData(void *This, void *notUsed, UINT64 steamIDLobby, ch
 	bool tmp;
 	tmp = oSetLobbyData(This, steamIDLobby, pchKey, pchValue);
 
-	printf("hSetLobbyData called - steamIDLobby, pchKey, pchValue, return:  %llu, %s, %s, %d\n", steamIDLobby, pchKey, pchValue, tmp);
+	printf("hSetLobbyData called - steamIDLobby, pchKey, pchValue, return:  %llx, %s, %s, %d\n", steamIDLobby, pchKey, pchValue, tmp);
 
 	return tmp;
 }
 void __fastcall hSetLobbyMemberData(void *This, void *notUsed, UINT64 steamIDLobby, char *pchKey, char *pchValue)
 {
-	printf("hSetLobbyMemberData called - steamIDLobby, pchKey, pchValue:  %llu, %s, %s\n", steamIDLobby, pchKey, pchValue);
+	printf("hSetLobbyMemberData called - steamIDLobby, pchKey, pchValue:  %llx, %s, %s\n", steamIDLobby, pchKey, pchValue);
 
 	oSetLobbyMemberData(This, steamIDLobby, pchKey, pchValue);
 }
@@ -1282,9 +1282,10 @@ DWORD ModuleCheckingThread()
 	
 
 	/*
+	//These need checking, gets and sets can crash
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListCompatibleMembersFilterAddress, &hAddRequestLobbyListCompatibleMembersFilter, &oAddRequestLobbyListCompatibleMembersFilter);
-	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListDistanceFilterAddress, &hAddRequestLobbyListDistanceFilter, &oAddRequestLobbyListDistanceFilter);
-	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListFilterSlotsAvailable, &hAddRequestLobbyListFilterSlotsAvailable, &oAddRequestLobbyListFilterSlotsAvailable);
+	//InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListDistanceFilterAddress, &hAddRequestLobbyListDistanceFilter, &oAddRequestLobbyListDistanceFilter);
+	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListFilterSlotsAvailableAddress, &hAddRequestLobbyListFilterSlotsAvailable, &oAddRequestLobbyListFilterSlotsAvailable);
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress, &hAddRequestLobbyListNearValueFilter, &oAddRequestLobbyListNearValueFilter);
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress, &hAddRequestLobbyListNumericalFilter, &oAddRequestLobbyListNumericalFilter);
 	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListResultCountFilterAddress, &hAddRequestLobbyListResultCountFilter, &oAddRequestLobbyListResultCountFilter);
@@ -1296,14 +1297,14 @@ DWORD ModuleCheckingThread()
 	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyDataByIndexAddress, &hGetLobbyDataByIndex, &oGetLobbyDataByIndex);
 	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyMemberByIndexAddress, &hGetLobbyMemberByIndex, &oGetLobbyMemberByIndex);
 	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyMemberDataAddress, &hGetLobbyMemberData, &oGetLobbyMemberData);
-	InsertHook((void*)SteamMatchMakingFunctions.GetNumLobbyMembersAddress, &hGetNumLobbyMemers, &oGetNumLobbyMembers);
+	InsertHook((void*)SteamMatchMakingFunctions.GetNumLobbyMembersAddress, &hGetNumLobbyMembers, &oGetNumLobbyMembers);
 	InsertHook((void*)SteamMatchMakingFunctions.InviteUserToLobbyAddress, &hInviteUserToLobby, &oInviteUserToLobby);
 	InsertHook((void*)SteamMatchMakingFunctions.JoinLobbyAddress, &hJoinLobby, &oJoinLobby);
-	InsertHook((void*)SteamMatchMakingFunctions.LeaveLobbyAddress, &hLeaveLobby, &hoLeaveLobby);
+	InsertHook((void*)SteamMatchMakingFunctions.LeaveLobbyAddress, &hLeaveLobby, &oLeaveLobby);
 	InsertHook((void*)SteamMatchMakingFunctions.RequestLobbyListAddress, &hRequestLobbyList, &oRequestLobbyList);
 	InsertHook((void*)SteamMatchMakingFunctions.SendLobbyChatMsgAddress, &hSendLobbyChatMsg, &oSendLobbyChatMsg);
-	InsertHook((void*)SteamMatchMakingFunctions.SetLobbyDataAddress, &hSetLobbyData, &oSetLobbyData);
-	InsertHook((void*)SteamMatchMakingFunctions.SetLobbyMemberDataAddress, &hSetLobbyMemberData, &oSetLobbyMemberData);
+	//InsertHook((void*)SteamMatchMakingFunctions.SetLobbyDataAddress, &hSetLobbyData, &oSetLobbyData);
+	//InsertHook((void*)SteamMatchMakingFunctions.SetLobbyMemberDataAddress, &hSetLobbyMemberData, &oSetLobbyMemberData);
 	*/
 
 
@@ -1312,10 +1313,10 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oSendP2PPacket = (DWORD)SteamNetworkingFunctions.SendP2PPacketAddress;
 
 
-	/*
-	InsertHook((void*)SteamNetworkingFunctions.ReadP2PPacketAddress, &hReadP2PPacket, &oReadP2PPacket);
-	InsertHook((void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
-	*/
+	
+	//InsertHook((void*)SteamNetworkingFunctions.ReadP2PPacketAddress, &hReadP2PPacket, &oReadP2PPacket);
+	//InsertHook((void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
+	
 
 	//D3D9 Hooks
 	*(PDWORD)&oBeginScene = (DWORD)DXFunctions.BeginSceneAddress;
@@ -1483,8 +1484,8 @@ bool Initialize_DirectX()
 
 	//printf("RequestLobbyList:  %p\n", (void*)SteamMatchMakingFunctions.RequestLobbyListAddress);
 	//printf("GetLobbyByIndex:  %p\n", (void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress);
-
-
+	//printf("SetLobbyData:  %p\n", (void*)SteamMatchMakingFunctions.SetLobbyDataAddress);
+	printf("GetLobbyMemberData:  %p\n\n", (void*)SteamMatchMakingFunctions.GetLobbyMemberDataAddress);
 	return true;
 }
 bool CreateDefaultFont()
