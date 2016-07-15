@@ -88,6 +88,7 @@ wstring lastAtk[5] = { L"x",L"x",L"x",L"x",L"x" };
 wstring lastDef[5] = { L"x",L"x",L"x",L"x",L"x" };
 float lastDmg[5] = { 0, 0, 0, 0, 0 };
 UINT *lastenemy = 0;
+byte ver = 0x3e;   //0x2e
 
 UINT *chardata1 = NULL;
 
@@ -561,6 +562,7 @@ struct creatureData1
 	charLocData *loc;			//0x0028
 	BYTE unk2[0xC];
 	wchar_t modelName[0x8];		//0x0038
+	BYTE unk3[0x20];
 	int NPCID;					//0x0068
 	BYTE unk4[0x4];
 	int PhantomType;			//0x0070
