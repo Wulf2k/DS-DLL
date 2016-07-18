@@ -1482,21 +1482,7 @@ bool Initialize_DirectX()
 	pD3dDevice->GetViewport(&d3dViewport);
 	printf("d3dViewport.width: %d\n", d3dViewport.Width);
 	printf("d3dViewport.height: %d\n", d3dViewport.Height);
-	//printf("endHook: %p\n", (void *)DXFunctions.EndSceneAddress);
-	//printf("resetHook: %p\n", (void *)DXFunctions.ResetAddress);
-	//printf("setRenderStateHook: %p\n", (void *)DXFunctions.SetRenderStateAddress);
 
-	//printf("DrawIndexedPrimitive: %p\n", (void *)DXFunctions.DrawIndexedPrimitiveAddress);
-	//printf("DrawIndexedPrimitiveUP: %p\n", (void *)DXFunctions.DrawIndexedPrimitiveUPAddress);
-	//printf("DrawPrimitive: %p\n", (void *)DXFunctions.DrawPrimitiveAddress);
-	//printf("DrawPrimitiveUP: %p\n", (void *)DXFunctions.DrawPrimitiveUPAddress);
-	//printf("Finished Initialize_DirectX\n");
-	//printf("oSendP2P: %p\n", (void *)SteamNetworkingFunctions.SendP2PPacketAddress);
-
-	//printf("RequestLobbyList:  %p\n", (void*)SteamMatchMakingFunctions.RequestLobbyListAddress);
-	//printf("GetLobbyByIndex:  %p\n", (void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress);
-	//printf("SetLobbyData:  %p\n", (void*)SteamMatchMakingFunctions.SetLobbyDataAddress);
-	printf("GetLobbyMemberData:  %p\n\n", (void*)SteamMatchMakingFunctions.GetLobbyMemberDataAddress);
 	return true;
 }
 bool CreateDefaultFont()
@@ -1513,7 +1499,7 @@ bool CreateDefaultFont()
 			printf("Problem creating Font: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
 			return false;
 		}
-		printf("\tCreated gFont: %p\n", gFont);
+		//printf("\tCreated gFont: %p\n", gFont);
 		//printf("\tFont Size: %d\n", fontSize);
 		//printf("\tFont Line Spacing: %d\n", fontLineSpacing);
 	}
@@ -1530,7 +1516,7 @@ bool CreateDefaultFont()
 			printf("Problem creating Font: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
 			return false;
 		}
-		printf("\tCreated giFont: %p\n", giFont);
+		//printf("\tCreated giFont: %p\n", giFont);
 		//printf("\tFont Size: %d\n", fontSize);
 		//printf("\tFont Line Spacing: %d\n", fontLineSpacing);
 	}
