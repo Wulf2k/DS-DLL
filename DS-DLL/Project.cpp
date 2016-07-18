@@ -3,6 +3,8 @@
 #include "Test.h"
 #include "Unloader.h"
 #include "Console.h"
+
+#include <atlstr.h>
 #include <d3d9.h>
 #include <d3dx9.h>
 #include <fstream>
@@ -10,6 +12,7 @@
 #include <Minhook.h>
 #include <process.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <time.h>
 #include <vector>
@@ -567,13 +570,18 @@ struct creatureData1
 	BYTE unk4[0x4];
 	int PhantomType;			//0x0070
 	int TeamType;				//0x0074
-	BYTE unk5[0x25C];
+	BYTE unk5[0x148];
+	float currPoise;			//0x01C0
+	float maxPoise;				//0x01C4
+	BYTE unk5a[0x4];
+	float poiseRecoveryTimer;	//0x01CC
+	BYTE unk6[0x104];
 	int currHP;					//0x02D4
 	int maxHP;					//0x02D8
-	BYTE unk6[0x8];
+	BYTE unk7[0x8];
 	int currStam;				//0x02E4
 	int maxStam;				//0x02E8
-	BYTE unk7[0x14];
+	BYTE unk8[0x14];
 	int currentPoisonResist;	//0x0300
 	int currentToxicResist;		//0x0304
 	int currentBleedResist;		//0x0308
@@ -582,9 +590,9 @@ struct creatureData1
 	int maxToxicResist;			//0x0314
 	int maxBleedResist;			//0x0318
 	int maxCurseResist;			//0x031C
-	BYTE unk8[0xF4];
+	BYTE unk9[0xF4];
 	creatureData2 *cdata2;		//0x0414
-	BYTE unk9[0x4];
+	BYTE unk10[0x4];
 	int AIID;					//0x041C
 };
 
@@ -1311,9 +1319,10 @@ DWORD ModuleCheckingThread()
 
 
 	//Steam Networking Hooks
+	/*
 	*(PDWORD)&oReadP2PPacket = (DWORD)SteamNetworkingFunctions.ReadP2PPacketAddress;
 	*(PDWORD)&oSendP2PPacket = (DWORD)SteamNetworkingFunctions.SendP2PPacketAddress;
-
+	*/
 
 	
 	//InsertHook((void*)SteamNetworkingFunctions.ReadP2PPacketAddress, &hReadP2PPacket, &oReadP2PPacket);
@@ -1611,6 +1620,7 @@ void drawStuff()
 	if (showstats && chardata1)
 	{
 		wstring text = L"";
+
 		creatureData1 *self = (creatureData1*)chardata1;
 		creatureData1 *target = (creatureData1*)lastenemy;
 
@@ -1637,7 +1647,7 @@ void drawStuff()
 
 		if (lastenemy)
 		{
-			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(9), yP(26), C_BLACK, C_BLACK);
+			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(10), yP(32), C_BLACK, C_BLACK);
 
 			text = target->modelName;
 			DrawScreenText(giFont, text, xP(4), yP(26), C_WHITE);
@@ -1662,18 +1672,26 @@ void drawStuff()
 			DrawScreenText(giFont, text, xP(4), yP(44), C_PURPLE);
 			text = L"B: " + to_wstring(target->currentBleedResist);
 			DrawScreenText(giFont, text, xP(4), yP(46), C_RED);
-			text = L"C: " + to_wstring(target->currentToxicResist);
+			text = L"C: " + to_wstring(target->currentCurseResist);
 			DrawScreenText(giFont, text, xP(4), yP(48), C_DARKGRAY);
 
+			CString fltStr1;
+			CString fltStr2;
+			fltStr1.Format(_T("%.1f"), target->currPoise);
+			fltStr2.Format(_T("%.1f"), target->maxPoise);
 
-
+			text = L"Poise: " + fltStr1 + L" / " + fltStr2;
+			DrawScreenText(giFont, text, xP(4), yP(52), C_DARKGRAY);
+			fltStr1.Format(_T("%.1f"), target->poiseRecoveryTimer);
+			text = L"Poise recov: " + fltStr1;
+			DrawScreenText(giFont, text, xP(4), yP(54), C_DARKGRAY);
 
 			printf("Memloc: %p\n", lastenemy);
 
 
 
 			text = lastAtk[4] + L" hit " + lastDef[4] + L" with an attack power of " + to_wstring(lastDmg[4]);
-			DrawScreenText(giFont, text, xP(2), yP(99), C_WHITE);
+			DrawScreenText(giFont, text, xP(2), yP(99.5), C_WHITE);
 
 
 		}
