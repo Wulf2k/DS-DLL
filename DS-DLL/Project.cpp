@@ -1633,7 +1633,7 @@ void drawStuff()
 
 		if (lastenemy)
 		{
-			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(10), yP(32), C_BLACK, C_BLACK);
+			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(12), yP(32), C_BLACK, C_BLACK);
 
 			text = target->modelName;
 			DrawScreenText(giFont, text, xP(4), yP(26), C_WHITE);
@@ -1743,7 +1743,7 @@ void Initialize()
 	printf("Read:  %X\n", SteamNetworkingFunctions.ReadP2PPacketAddress);
 	printf("Send:  %X\n", SteamNetworkingFunctions.SendP2PPacketAddress);
 	
-
+	printf("SetStream:  %p\n", hSetStreamSource);
 }
 void Cleanup()
 {
