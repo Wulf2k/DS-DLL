@@ -68,15 +68,18 @@ void drawStuff();
 #define FONT_SPACING_720 19
 
 #define C_BLACK D3DCOLOR_RGBA(0,0,0,255)
-#define C_WHITE D3DCOLOR_RGBA(255,255,255,255)
+#define C_BLUE D3DCOLOR_RGBA(0x00, 0x00, 0xFF, 0xFF)
+#define C_CYAN D3DCOLOR_RGBA(0x00, 0xFF, 0xFF, 0xFF)
 #define C_LIGHTGRAY D3DCOLOR_RGBA(235,235,235,255)
 #define C_DARKGRAY D3DCOLOR_RGBA(100,100,100,255)
 #define C_TRANSBLACK D3DCOLOR_RGBA(0, 0, 0, 100)
 #define C_TRANSGRAY D3DCOLOR_RGBA(128, 128, 128, 128)
 #define C_VIOLET D3DCOLOR_RGBA(0xBF, 0x5F, 0xFF, 0xFF)
 #define C_INDIGO D3DCOLOR_RGBA(0x4B, 0, 0x82, 0xFF)
-#define C_RED D3DCOLOR_RGBA(0xFF, 0, 0, 0xFF)
+#define C_GREEN D3DCOLOR_RGBA(0x00, 0xFF, 0x00, 0xFF)
+#define C_RED D3DCOLOR_RGBA(0xFF, 0x00, 0x00, 0xFF)
 #define C_PURPLE D3DCOLOR_RGBA(0x82, 0x0B, 0xBB, 0xFF)
+#define C_WHITE D3DCOLOR_RGBA(255,255,255,255)
 
 
 int fontSize = FONT_SIZE_1080;
@@ -578,7 +581,8 @@ struct creatureData1
 	BYTE unk6[0x104];
 	int currHP;					//0x02D4
 	int maxHP;					//0x02D8
-	BYTE unk7[0x8];
+	int currMP;					//0x02DC
+	int maxMP;					//0x02E0
 	int currStam;				//0x02E4
 	int maxStam;				//0x02E8
 	BYTE unk8[0x14];
@@ -590,10 +594,22 @@ struct creatureData1
 	int maxToxicResist;			//0x0314
 	int maxBleedResist;			//0x0318
 	int maxCurseResist;			//0x031C
-	BYTE unk9[0xF4];
+	BYTE unk9[0x28];
+	int talkID;					//0x0348
+	BYTE unk9a[0xC8];
 	creatureData2 *cdata2;		//0x0414
 	BYTE unk10[0x4];
 	int AIID;					//0x041C
+};
+struct areadata
+{
+	BYTE unk1[0xA12];
+	char area;
+	char world;
+	long MPZone;
+	float xpos;
+	float ypos;
+	float zpos;
 };
 
 
@@ -1631,35 +1647,91 @@ void drawStuff()
 		}
 		*/
 
+		DWORD posdata;
+
+		__asm {
+			mov posdata, 0
+
+			mov eax, 0x137E204
+			mov eax, [eax]
+
+			mov posdata, eax
+		}
+
+
+		if (posdata && chardata1)
+		{
+
+			//DWORD *pVTable = (DWORD*)(SteamMatchmaking);
+			areadata *adata = (areadata*)(posdata);
+			DrawGradientBox(pD3dDevice, xP(83), yP(77), xP(10), yP(16), C_BLACK, C_BLACK);
+
+			text = L"World: " + to_wstring(adata->world);
+			DrawScreenText(giFont, text, xP(84), yP(78), C_WHITE);
+
+			text = L"Area:  " + to_wstring(adata->area);
+			DrawScreenText(giFont, text, xP(84), yP(80), C_WHITE);
+
+			text = L"MP Zone:  " + to_wstring(adata->MPZone);
+			DrawScreenText(giFont, text, xP(84), yP(82), C_WHITE);
+
+			CString fltpos;
+			
+			fltpos.Format(_T("%.1f"), adata->xpos);
+			text = L"X:  " + fltpos;
+			DrawScreenText(giFont, text, xP(84), yP(86), C_WHITE);
+
+			fltpos.Format(_T("%.1f"), adata->ypos);
+			text = L"Y:  " + fltpos;
+			DrawScreenText(giFont, text, xP(84), yP(88), C_WHITE);
+
+			fltpos.Format(_T("%.1f"), adata->zpos);
+			text = L"Z:  " + fltpos;
+			DrawScreenText(giFont, text, xP(84), yP(90), C_WHITE);
+
+			if (adata->world == -1)
+				lastenemy = NULL;
+		}
+		
+
+
+
+
+
 		if (lastenemy)
 		{
-			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(12), yP(32), C_BLACK, C_BLACK);
+			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(12), yP(36), C_BLACK, C_BLACK);
 
 			text = target->modelName;
 			DrawScreenText(giFont, text, xP(4), yP(26), C_WHITE);
 
 			text = L"HP: " + to_wstring(target->currHP) + L" / " + to_wstring(target->maxHP);
-			DrawScreenText(giFont, text, xP(4), yP(28), C_WHITE);
+			DrawScreenText(giFont, text, xP(4), yP(28), C_RED);
 			text = L"Stam: " + to_wstring(target->currStam) + L" / " + to_wstring(target->maxStam);
-			DrawScreenText(giFont, text, xP(4), yP(30), C_WHITE);
+			DrawScreenText(giFont, text, xP(4), yP(30), C_GREEN);
+			text = L"MP: " + to_wstring(target->currMP) + L" / " + to_wstring(target->maxMP);
+			DrawScreenText(giFont, text, xP(4), yP(32), C_CYAN);
 
 			text = L"TeamType: " + to_wstring(target->TeamType);
-			DrawScreenText(giFont, text, xP(4), yP(34), C_WHITE);
+			DrawScreenText(giFont, text, xP(4), yP(36), C_WHITE);
 			
 			text = L"NPC ID: " + to_wstring(target->NPCID);
-			DrawScreenText(giFont, text, xP(4), yP(36), C_WHITE);
+			DrawScreenText(giFont, text, xP(4), yP(38), C_WHITE);
+			text = L"Talk ID: " + to_wstring(target->talkID);
+			DrawScreenText(giFont, text, xP(4), yP(40), C_WHITE);
+
 
 
 			text = L"Resists";
-			DrawScreenText(giFont, text, xP(4), yP(40), C_WHITE);
+			DrawScreenText(giFont, text, xP(4), yP(44), C_WHITE);
 			text = L"P: " + to_wstring(target->currentPoisonResist);
-			DrawScreenText(giFont, text, xP(4), yP(42), C_VIOLET);
+			DrawScreenText(giFont, text, xP(4), yP(46), C_VIOLET);
 			text = L"T: " + to_wstring(target->currentToxicResist);
-			DrawScreenText(giFont, text, xP(4), yP(44), C_PURPLE);
+			DrawScreenText(giFont, text, xP(4), yP(48), C_PURPLE);
 			text = L"B: " + to_wstring(target->currentBleedResist);
-			DrawScreenText(giFont, text, xP(4), yP(46), C_RED);
+			DrawScreenText(giFont, text, xP(4), yP(50), C_RED);
 			text = L"C: " + to_wstring(target->currentCurseResist);
-			DrawScreenText(giFont, text, xP(4), yP(48), C_DARKGRAY);
+			DrawScreenText(giFont, text, xP(4), yP(52), C_DARKGRAY);
 
 			CString fltStr1;
 			CString fltStr2;
@@ -1667,17 +1739,22 @@ void drawStuff()
 			fltStr2.Format(_T("%.1f"), target->maxPoise);
 
 			text = L"Poise: " + fltStr1 + L" / " + fltStr2;
-			DrawScreenText(giFont, text, xP(4), yP(52), C_DARKGRAY);
+			DrawScreenText(giFont, text, xP(4), yP(56), C_DARKGRAY);
 			fltStr1.Format(_T("%.1f"), target->poiseRecoveryTimer);
 			text = L"Poise recov: " + fltStr1;
-			DrawScreenText(giFont, text, xP(4), yP(54), C_DARKGRAY);
+			DrawScreenText(giFont, text, xP(4), yP(58), C_DARKGRAY);
 
 			printf("Memloc: %p\n", lastenemy);
 
-
-
 			text = lastAtk[4] + L" hit " + lastDef[4] + L" with an attack power of " + to_wstring(lastDmg[4]);
 			DrawScreenText(giFont, text, xP(2), yP(99.5), C_WHITE);
+
+
+
+
+
+
+
 
 
 		}
