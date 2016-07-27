@@ -568,9 +568,9 @@ struct creatureData1
 	charLocData *loc;			//0x0028
 	BYTE unk2[0xC];
 	wchar_t modelName[0x8];		//0x0038
-	BYTE unk3[0x20];
-	int NPCID;					//0x0068
-	BYTE unk4[0x4];
+	BYTE unk3[0x1C];
+	int NPCID;					//0x0064
+	BYTE unk4[0x8];
 	int PhantomType;			//0x0070
 	int TeamType;				//0x0074
 	BYTE unk5[0x148];
