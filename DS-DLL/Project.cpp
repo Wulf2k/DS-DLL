@@ -115,6 +115,12 @@ https://github.com/rlabrecque/Steamworks.NET-Example/tree/master/Assets/Plugins/
 Do these right later
 */
 
+//KernelBase Hooks
+typedef HRESULT(WINAPI* tkb_CreateFileW)(LPCTSTR *lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+
+HRESULT WINAPI hkb_CreateFileW(LPCTSTR *lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
+
+tkb_CreateFileW okb_CreateFileW = NULL;
 
 
 //Steam Matchmaking Hooks
@@ -279,6 +285,12 @@ struct sDSGameFunctions
 	DWORD DS_LandHitAddress;
 };
 sDSGameFunctions DSGameFunctions;
+
+struct sKernelBaseFunctions
+{
+	DWORD kb_CreateFileWAddress;
+};
+sKernelBaseFunctions KernelBaseFunctions;
 
 
 struct sSteamMatchmakingFunctions
@@ -624,6 +636,7 @@ struct LoadedCreatures
 
 
 
+
 //In-Game Function Hooks
 void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 {
@@ -664,6 +677,22 @@ void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 	}
 	oDS_LandHit(atkChar, dmg, unk);
 }
+
+
+
+
+//KernelBase Hooks
+HRESULT WINAPI hkb_CreateFileW(LPCTSTR *lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
+{
+	wprintf(L"hkb_CreateFileW called. lpFilename = %s\n", lpFileName);
+
+	HRESULT tmp;
+	tmp = okb_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+	return tmp;
+}
+
+
+
 
 
 //Steam Matchmaking Hooks
@@ -888,7 +917,7 @@ void __fastcall hSendP2PPacket(void* This, void* unused, UINT64 SteamID, void *p
 //D3D9 Hooks
 HRESULT WINAPI hBeginScene(LPDIRECT3DDEVICE9 pDevice)
 {
-	//printf("BeginScene called.\n");
+	//printf("BeginScene called. %p\n", DXFunctions.BeginSceneAddress);
 
 	HRESULT tmp;
 	tmp = oBeginScene(pDevice);
@@ -1167,7 +1196,16 @@ HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
 
 
 
+void initKernelBaseFunctions()
+{
+	HMODULE kernelBaseHandle;
+	kernelBaseHandle = GetModuleHandle(TEXT("kernelbase.dll"));
 
+	printf("KernelBase.dll = %p\n", kernelBaseHandle);
+
+	KernelBaseFunctions.kb_CreateFileWAddress = (DWORD)kernelBaseHandle + 0xAD800;
+
+}
 
 void initInGameFunctions()
 {
@@ -1281,6 +1319,12 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oDS_LandHit = (DWORD)DSGameFunctions.DS_LandHitAddress;
 
 	InsertHook((void*)DSGameFunctions.DS_LandHitAddress, &hDS_LandHit, &oDS_LandHit);
+
+
+	//KernelBase Hooks
+	*(PDWORD)&okb_CreateFileW = (DWORD)KernelBaseFunctions.kb_CreateFileWAddress;
+
+	InsertHook((void*)KernelBaseFunctions.kb_CreateFileWAddress, &hkb_CreateFileW, &okb_CreateFileW);
 
 	//Steam Matchmaking Hooks
 	*(PDWORD)&oAddRequestLobbyListCompatibleMembersFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListCompatibleMembersFilterAddress;
@@ -1494,8 +1538,11 @@ bool Initialize_DirectX()
 
 
 	pD3dDevice->GetViewport(&d3dViewport);
+	printf("d3dDevice.ptr: %x\n", &d3dViewport);
 	printf("d3dViewport.width: %d\n", d3dViewport.Width);
 	printf("d3dViewport.height: %d\n", d3dViewport.Height);
+
+	
 
 	return true;
 }
@@ -1802,6 +1849,7 @@ void Initialize()
 
 	printf("Handle: %p\n", hDarkSouls);
 
+	initKernelBaseFunctions();
 	initInGameFunctions();
 	initSteamFunctions();
 
