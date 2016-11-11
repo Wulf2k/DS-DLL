@@ -98,17 +98,42 @@ byte ver = 0x3e;   //0x2e
 
 UINT *chardata1 = NULL;
 
-ofstream fout("c:\\temp\\DLLout.txt");
+wofstream fout("c:\\temp\\DLLout.txt");
+
+
+
+struct DsString
+{
+	DWORD unknown1;
+	wchar_t* str;
+	DWORD* ptr1;
+	DWORD* ptr2;
+	DWORD unknown2;
+	DWORD length;
+};
+
+
+
+
+
+
+
+
 
 //In-Game Function Hooks
 typedef void(__stdcall *tDS_LandHit)(UINT *atkChar, float *dmg, UINT unk);
-
 void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk);
-
 tDS_LandHit oDS_LandHit = NULL;
 
-/*
 
+typedef void(__stdcall *tDS_FileToLoad)(DsString* file, UINT unk);
+void __stdcall hDS_FileToLoad(DsString* file, UINT unk);
+tDS_FileToLoad oDS_FileToLoad = NULL;
+
+
+
+
+/*
 type definitions:
 https://github.com/rlabrecque/Steamworks.NET-Example/tree/master/Assets/Plugins/Steamworks.NET/types/SteamTypes
 
@@ -283,6 +308,7 @@ tSetViewport oSetViewport = NULL;
 struct sDSGameFunctions
 {
 	DWORD DS_LandHitAddress;
+	DWORD DS_FileToLoad;
 };
 sDSGameFunctions DSGameFunctions;
 
@@ -634,6 +660,45 @@ struct LoadedCreatures
 };
 
 
+wstring replace(wstring str, const wstring from, const wstring to)
+{
+	//wprintf(L"str, from, to: %s %s %s\n", str.c_str(), from.c_str(), to.c_str());
+
+	int nPos = 0;
+	nPos = str.find(from);
+
+	if (nPos > -1) {
+		str.replace(nPos, from.length(), to);
+	}
+	//wprintf(L"%s\n", str.c_str());
+	return str;
+}
+
+
+void eaxbypass(DsString* file)
+{
+	wchar_t *tmpstr = new wchar_t[260];
+	ZeroMemory(tmpstr, 520);
+
+	tmpstr = file->str;
+
+	wstring newfile(tmpstr);
+		
+	wprintf(L"e:%s\n", newfile);
+	newfile = replace(newfile, L"parts:/", L"game://");
+
+	wprintf(L"e:%s\n", newfile);
+	
+
+	wprintf(L"fs1-%s\n", file->str);
+	memcpy(file->str, newfile.c_str(), newfile.length() * 2);
+	//file->str = tmpstr;
+	wprintf(L"fs2-%s\n", file->str);
+	
+	//wprintf(L"%s, %d\n", newfile.c_str(), newfile.length());
+	//wprintf(L"%s\n", tmpstr);
+
+}
 
 
 
@@ -677,6 +742,37 @@ void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
 	}
 	oDS_LandHit(atkChar, dmg, unk);
 }
+void __stdcall hDS_FileToLoad(DsString* file, UINT unk)
+{
+	wchar_t *str;
+	__asm {
+		pushad
+		mov ecx, [esp + 0x38]
+		mov ecx, [ecx + 4]
+		mov str, ecx
+	};
+
+	eaxbypass(file);
+
+	//DsString newFile;
+
+
+
+	/*wchar_t *tmpstr = new wchar_t[0x1FF];
+	ZeroMemory(tmpstr, 0x1FF);
+
+	wsprintf(tmpstr, L"c:\\test.txt");
+
+	file->str = tmpstr;
+	*/
+	__asm {
+		popad
+	};
+
+	//oDS_FileToLoad(file, unk);
+	oDS_FileToLoad(file, unk);
+}
+
 
 
 
@@ -872,6 +968,7 @@ void __fastcall hReadP2PPacket(void *This, void *unused, void *pubDest, UINT cub
 
 	SYSTEMTIME st;
 	GetLocalTime(&st);
+	/*
 	fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
 		<< std::setw(2) << st.wMinute << ':'
 		<< std::setw(2) << st.wSecond << '.'
@@ -883,7 +980,7 @@ void __fastcall hReadP2PPacket(void *This, void *unused, void *pubDest, UINT cub
 	for (int i = 0; i < cubDest; ++i)
 		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
 	fout << endl;
-
+	*/
 	//printf("In size, byte #1:  %d, %d\n", cubDest, packetData->bytes[0]);
 }
 void __fastcall hSendP2PPacket(void* This, void* unused, UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
@@ -897,7 +994,7 @@ void __fastcall hSendP2PPacket(void* This, void* unused, UINT64 SteamID, void *p
 
 	SYSTEMTIME st;
 	GetLocalTime(&st);
-
+	/*
 	fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
 		<< std::setw(2) << st.wMinute << ':'
 		<< std::setw(2) << st.wSecond << '.'
@@ -909,7 +1006,7 @@ void __fastcall hSendP2PPacket(void* This, void* unused, UINT64 SteamID, void *p
 	for (int i = 0; i < cubData; ++i)
 		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
 	fout << endl;
-
+	*/
 	//printf("Out size, byte #1:  %d, %d\n", cubData, packetData->bytes[0]);
 }
 
@@ -1209,6 +1306,8 @@ void initKernelBaseFunctions()
 
 void initInGameFunctions()
 {
+	DSGameFunctions.DS_FileToLoad = 0x00672CF0;
+	//DSGameFunctions.DS_FileToLoad = 0x006726F0;
 	DSGameFunctions.DS_LandHitAddress = 0x00E6BFE0;
 }
 void initSteamFunctions()
@@ -1317,14 +1416,16 @@ DWORD ModuleCheckingThread()
 
 	//In-Game Function Hooks
 	*(PDWORD)&oDS_LandHit = (DWORD)DSGameFunctions.DS_LandHitAddress;
+	//InsertHook((void*)DSGameFunctions.DS_LandHitAddress, &hDS_LandHit, &oDS_LandHit);
 
-	InsertHook((void*)DSGameFunctions.DS_LandHitAddress, &hDS_LandHit, &oDS_LandHit);
+	*(PDWORD)&oDS_FileToLoad = (DWORD)DSGameFunctions.DS_FileToLoad;
+	InsertHook((void*)DSGameFunctions.DS_FileToLoad, &hDS_FileToLoad, &oDS_FileToLoad);
 
 
 	//KernelBase Hooks
 	*(PDWORD)&okb_CreateFileW = (DWORD)KernelBaseFunctions.kb_CreateFileWAddress;
 
-	InsertHook((void*)KernelBaseFunctions.kb_CreateFileWAddress, &hkb_CreateFileW, &okb_CreateFileW);
+	//InsertHook((void*)KernelBaseFunctions.kb_CreateFileWAddress, &hkb_CreateFileW, &okb_CreateFileW);
 
 	//Steam Matchmaking Hooks
 	*(PDWORD)&oAddRequestLobbyListCompatibleMembersFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListCompatibleMembersFilterAddress;
@@ -1411,6 +1512,7 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oSetStreamSource = (DWORD)DXFunctions.SetStreamSourceAddress;
 	*(PDWORD)&oSetTexture = (DWORD)DXFunctions.SetTextureAddress;
 
+	/*
 	InsertHook((void*)DXFunctions.BeginSceneAddress, &hBeginScene, &oBeginScene);
 	InsertHook((void*)DXFunctions.ColorFillAddress, &hColorFill, &oColorFill);
 	InsertHook((void*)DXFunctions.CreateIndexBufferAddress, &hCreateIndexBuffer, &oCreateIndexBuffer);
@@ -1433,7 +1535,7 @@ DWORD ModuleCheckingThread()
 	InsertHook((void*)DXFunctions.SetRenderStateAddress, &hSetRenderState, &oSetRenderState);
 	InsertHook((void*)DXFunctions.SetStreamSourceAddress, &hSetStreamSource, &oSetStreamSource);
 	InsertHook((void*)DXFunctions.SetTextureAddress, &hSetTexture, &oSetTexture);
-
+	*/
 
 
 	return 0;
@@ -1837,7 +1939,7 @@ DLLEXPORT void __cdecl Start(void*)
 
 void Initialize()
 {
-	fout << "Time,Direction,nChannel,EP2PSendType,SteamID,Size,Contents" << endl;
+	//fout << "Time,Direction,nChannel,EP2PSendType,SteamID,Size,Contents" << endl;
 
 	HANDLE hDarkSouls = GetModuleHandleA("DarkSouls.exe");
 
