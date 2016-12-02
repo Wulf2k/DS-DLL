@@ -1416,10 +1416,10 @@ DWORD ModuleCheckingThread()
 
 	//In-Game Function Hooks
 	*(PDWORD)&oDS_LandHit = (DWORD)DSGameFunctions.DS_LandHitAddress;
-	//InsertHook((void*)DSGameFunctions.DS_LandHitAddress, &hDS_LandHit, &oDS_LandHit);
+	InsertHook((void*)DSGameFunctions.DS_LandHitAddress, &hDS_LandHit, &oDS_LandHit);
 
 	*(PDWORD)&oDS_FileToLoad = (DWORD)DSGameFunctions.DS_FileToLoad;
-	InsertHook((void*)DSGameFunctions.DS_FileToLoad, &hDS_FileToLoad, &oDS_FileToLoad);
+	//InsertHook((void*)DSGameFunctions.DS_FileToLoad, &hDS_FileToLoad, &oDS_FileToLoad);
 
 
 	//KernelBase Hooks
@@ -1512,7 +1512,7 @@ DWORD ModuleCheckingThread()
 	*(PDWORD)&oSetStreamSource = (DWORD)DXFunctions.SetStreamSourceAddress;
 	*(PDWORD)&oSetTexture = (DWORD)DXFunctions.SetTextureAddress;
 
-	/*
+	
 	InsertHook((void*)DXFunctions.BeginSceneAddress, &hBeginScene, &oBeginScene);
 	InsertHook((void*)DXFunctions.ColorFillAddress, &hColorFill, &oColorFill);
 	InsertHook((void*)DXFunctions.CreateIndexBufferAddress, &hCreateIndexBuffer, &oCreateIndexBuffer);
@@ -1535,7 +1535,7 @@ DWORD ModuleCheckingThread()
 	InsertHook((void*)DXFunctions.SetRenderStateAddress, &hSetRenderState, &oSetRenderState);
 	InsertHook((void*)DXFunctions.SetStreamSourceAddress, &hSetStreamSource, &oSetStreamSource);
 	InsertHook((void*)DXFunctions.SetTextureAddress, &hSetTexture, &oSetTexture);
-	*/
+	
 
 
 	return 0;
