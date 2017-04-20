@@ -89,7 +89,7 @@ bool gVisible = true;
 
 bool wireframe = false;
 bool debugEXE = false;
-bool showstats = false;
+bool showstats = true;
 wstring lastAtk[5] = { L"x",L"x",L"x",L"x",L"x" };
 wstring lastDef[5] = { L"x",L"x",L"x",L"x",L"x" };
 float lastDmg[5] = { 0, 0, 0, 0, 0 };
@@ -98,7 +98,7 @@ byte ver = 0x3e;   //0x2e
 
 UINT *chardata1 = NULL;
 
-wofstream fout("c:\\temp\\DLLout.txt");
+//wofstream fout("c:\\temp\\DLLout.txt");
 
 
 
@@ -1741,7 +1741,8 @@ float yP(float y)
 void drawStuff()
 {
 	bool wf = wireframe;
-
+	//printf("drawstuff called\n");
+	
 	if (wf)
 		wireframe = !wireframe;
 
@@ -1779,11 +1780,11 @@ void drawStuff()
 
 		//HP
 		text = to_wstring(self->currHP) + L" / " + to_wstring(self->maxHP);
-		DrawScreenText(giFont, text, xP(15), yP(11.25), C_WHITE);
+		DrawScreenText(giFont, text, xP(15), yP(10.75), C_WHITE);
 
 		//Stam
 		text = to_wstring(self->currStam) + L" / " + to_wstring(self->maxStam);
-		DrawScreenText(giFont, text, xP(15), yP(14.25), C_WHITE);
+		DrawScreenText(giFont, text, xP(15), yP(13.75), C_WHITE);
 
 		
 		/*Display 5 last hits
@@ -1811,8 +1812,9 @@ void drawStuff()
 
 			//DWORD *pVTable = (DWORD*)(SteamMatchmaking);
 			areadata *adata = (areadata*)(posdata);
-			DrawGradientBox(pD3dDevice, xP(83), yP(77), xP(10), yP(16), C_BLACK, C_BLACK);
+			DrawGradientBox(pD3dDevice, xP(87), yP(80), xP(10), yP(9), C_BLACK, C_BLACK);
 
+			/*
 			text = L"World: " + to_wstring(adata->world);
 			DrawScreenText(giFont, text, xP(84), yP(78), C_WHITE);
 
@@ -1821,31 +1823,60 @@ void drawStuff()
 
 			text = L"MP Zone:  " + to_wstring(adata->MPZone);
 			DrawScreenText(giFont, text, xP(84), yP(82), C_WHITE);
+			*/
+
 
 			CString fltpos;
 			
 			fltpos.Format(_T("%.1f"), adata->xpos);
 			text = L"X:  " + fltpos;
-			DrawScreenText(giFont, text, xP(84), yP(86), C_WHITE);
+			DrawScreenText(giFont, text, xP(88), yP(81), C_WHITE);
 
 			fltpos.Format(_T("%.1f"), adata->ypos);
 			text = L"Y:  " + fltpos;
-			DrawScreenText(giFont, text, xP(84), yP(88), C_WHITE);
+			DrawScreenText(giFont, text, xP(88), yP(83), C_WHITE);
 
 			fltpos.Format(_T("%.1f"), adata->zpos);
 			text = L"Z:  " + fltpos;
-			DrawScreenText(giFont, text, xP(84), yP(90), C_WHITE);
+			DrawScreenText(giFont, text, xP(88), yP(85), C_WHITE);
 
 			if (adata->world == -1)
 				lastenemy = NULL;
 		}
 		
 
+		DWORD statdata;
+
+		__asm {
+			mov statdata, 0
+
+			mov eax, 0x1378700
+			mov eax, [eax]
+
+			mov statdata, eax
+		}
+
+
+		if (statdata)
+		{
+			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(11), yP(8), C_BLACK, C_BLACK);
+			int *clearcount = (int*)(statdata + 0x3C);
+			int *deathcount = (int*)(statdata + 0x5C);
 
 
 
+			text = L"NG+: " + to_wstring(*clearcount);
+			DrawScreenText(giFont, text, xP(4), yP(26), C_WHITE);
 
-		if (lastenemy)
+			text = L"Deaths: " + to_wstring(*deathcount);
+			DrawScreenText(giFont, text, xP(4), yP(29), C_WHITE);
+
+
+		}
+
+
+		//if (lastenemy)
+		if (false)
 		{
 			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(12), yP(36), C_BLACK, C_BLACK);
 
@@ -1895,16 +1926,11 @@ void drawStuff()
 
 			text = lastAtk[4] + L" hit " + lastDef[4] + L" with an attack power of " + to_wstring(lastDmg[4]);
 			DrawScreenText(giFont, text, xP(2), yP(99.5), C_WHITE);
-
-
-
-
-
-
-
-
-
 		}
+
+
+
+
 	}
 
 	if (wf)
@@ -1973,7 +1999,7 @@ void Initialize()
 void Cleanup()
 {
 	MH_DisableHook(MH_ALL_HOOKS);
-	fout.close();
+	//fout.close();
 }
 void Run()
 {
