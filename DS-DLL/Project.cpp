@@ -87,149 +87,8 @@ int fontLineSpacing = FONT_SPACING_1080;
 bool bRunning = false;
 bool gVisible = true;
 
-bool wireframe = false;
-bool debugEXE = false;
-bool showstats = true;
-wstring lastAtk[5] = { L"x",L"x",L"x",L"x",L"x" };
-wstring lastDef[5] = { L"x",L"x",L"x",L"x",L"x" };
-float lastDmg[5] = { 0, 0, 0, 0, 0 };
-UINT *lastenemy = 0;
-byte ver = 0x3e;   //0x2e
-
-UINT *chardata1 = NULL;
-
-//wofstream fout("c:\\temp\\DLLout.txt");
 
 
-
-struct DsString
-{
-	DWORD unknown1;
-	wchar_t* str;
-	DWORD* ptr1;
-	DWORD* ptr2;
-	DWORD unknown2;
-	DWORD length;
-};
-
-
-
-
-
-
-
-
-
-//In-Game Function Hooks
-typedef void(__stdcall *tDS_LandHit)(UINT *atkChar, float *dmg, UINT unk);
-void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk);
-tDS_LandHit oDS_LandHit = NULL;
-
-
-typedef void(__stdcall *tDS_FileToLoad)(DsString* file, UINT unk);
-void __stdcall hDS_FileToLoad(DsString* file, UINT unk);
-tDS_FileToLoad oDS_FileToLoad = NULL;
-
-
-
-
-/*
-type definitions:
-https://github.com/rlabrecque/Steamworks.NET-Example/tree/master/Assets/Plugins/Steamworks.NET/types/SteamTypes
-
-Do these right later
-*/
-
-//KernelBase Hooks
-typedef HRESULT(WINAPI* tkb_CreateFileW)(LPCTSTR *lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
-
-HRESULT WINAPI hkb_CreateFileW(LPCTSTR *lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile);
-
-tkb_CreateFileW okb_CreateFileW = NULL;
-
-
-//Steam Matchmaking Hooks
-typedef UINT SteamAPICall_t;
-typedef UINT64 CSteamID;
-typedef void(__thiscall *tAddRequestLobbyListCompatibleMembersFilter)(void*, UINT64 steamIDLobby);
-typedef void(__thiscall *tAddRequestLobbyListDistanceFilter)(void*, UINT eLobbyDistanceFilter);
-typedef void(__thiscall *tAddRequestLobbyListFilterSlotsAvailable)(void*, int nSlotsAvailable);
-typedef void(__thiscall *tAddRequestLobbyListNearValueFilter)(void*, char *pchKeyToMatch, int nValueToBeCloseTo);
-typedef void(__thiscall *tAddRequestLobbyListNumericalFilter)(void*, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType);
-typedef void(__thiscall *tAddRequestLobbyListResultCountFilter)(void*, int cMaxResults);
-typedef void(__thiscall *tAddRequestLobbyListStringFilter)(void*, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType);
-typedef SteamAPICall_t(__thiscall *tCreateLobby)(void*, UINT eLobbyType, int cMaxMembers);
-typedef UINT64(__thiscall *tGetLobbyByIndex)(void*, UINT *unknown, int iLobby);
-typedef int(__thiscall *tGetLobbyChatEntry)(void*, int iChatID, UINT64 *pSteamIDUser, void *pvData, int cubData, UINT *peChatEntryType);
-typedef char*(__thiscall *tGetLobbyData)(void*, UINT64 steamIDLobby, char *pchKey);
-typedef bool(__thiscall *tGetLobbyDataByIndex)(void*, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize);
-typedef char*(__thiscall *tGetLobbyMemberData)(void*, UINT64 steamIDLobby, UINT64 steamIDUser, char *pchKey);
-typedef UINT64(__thiscall *tGetLobbyMemberByIndex)(void*, UINT steamIDLobby, int iMember);
-typedef int(__thiscall *tGetNumLobbyMembers)(void*, UINT64 steamIDLobby);
-typedef void(__thiscall *tInviteUserToLobby)(void*, UINT64 steamIDLobby, UINT64 steamIDInvitee);
-typedef void(__thiscall *tJoinLobby)(void*, UINT64 steamIDLobby);
-typedef void(__thiscall *tLeaveLobby)(void*, UINT64 steamIDLobby);
-typedef void(__thiscall *tRequestLobbyList)(void*);
-typedef void(__thiscall *tSendLobbyChatMsg)(void*, UINT64 steamIDLobby, void *pvMsgBody, int cubMsgBody);
-typedef bool(__thiscall *tSetLobbyData)(void*, UINT64 steamIDLoby, char *pchKey, char *pchValue);
-typedef void(__thiscall *tSetLobbyMemberData)(void*, UINT64 steamIDLobby, char *pchKey, char *pchValue);
-
-void __fastcall hAddRequestLobbyListCompatibleMembersFilter(void *This, void *notUsed, UINT64 steamIDLobby);
-void __fastcall hAddRequestLobbyListDistanceFilter(void *This, void *notUsed, UINT eLobbyDistanceFilter);
-void __fastcall hAddRequestLobbyListFilterSlotsAvailable(void *This, void *notUsed, int nSlotsAvailable);
-void __fastcall hAddRequestLobbyListNearValueFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToBeCloseTo);
-void __fastcall hAddRequestLobbyListNumericalFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType);
-void __fastcall hAddRequestLobbyListResultCountFilter(void* This, void *notUsed, int cMaxResults);
-void __fastcall hAddRequestLobbyListStringFilter(void *This, void *notUsed, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType);
-SteamAPICall_t __fastcall hCreateLobby(void *This, void *notUsed, UINT eLobbyType, int cMaxMembers);
-UINT64 __fastcall hGetLobbyByIndex(void *This, void *notUsed, UINT *unknown, int iLobby);
-int __fastcall hGetLobbyChatEntry(void *This, void *notUsed, int iChatID, UINT64 *pSteamIDUser, void *pvData, int cubData, UINT *peChatEntryType);
-char* __fastcall hGetLobbyData(void *This, void *notUsed, UINT64 steamIDLobby, char *pchKey);
-bool __fastcall hGetLobbyDataByIndex(void *This, void *notUsed, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize);
-UINT64 __fastcall hGetLobbyMemberByIndex(void* This, void *notUsed, UINT steamIDLobby, int iMember);
-char* __fastcall hGetLobbyMemberData(void *This, void *notUsed, UINT64 steamIDLobby, UINT64 steamIDUser, char *pchKey);
-int __fastcall hGetNumLobbyMembers(void *This, void *notUsed, UINT64 steamIDLobby);
-void __fastcall hInviteUserToLobby(void *This, void *notUsed, UINT64 steamIDLobby, UINT64 steamIDInvitee);
-void __fastcall hJoinLobby(void *This, void *notUsed, UINT64 steamIDLobby);
-void __fastcall hLeaveLobby(void *This, void *notUsed, UINT64 steamIDLobby);
-void __fastcall hRequestLobbyList(void *This, void *notUsed);
-void __fastcall hSendLobbyChatMsg(void *This, void *notUsed, UINT64 steamIDLobby, void *pvMsgBody, int cubMsgBody);
-bool __fastcall hSetLobbyData(void *This, void *notUsed, UINT64 steamIDLobby, char *pchKey, char *pchValue);
-void __fastcall hSetLobbyMemberData(void *This, void *notUsed, UINT64 steamIDLobby, char *pchKey, char *pchValue);
-
-tAddRequestLobbyListCompatibleMembersFilter oAddRequestLobbyListCompatibleMembersFilter = NULL;
-tAddRequestLobbyListDistanceFilter oAddRequestLobbyListDistanceFilter = NULL;
-tAddRequestLobbyListFilterSlotsAvailable oAddRequestLobbyListFilterSlotsAvailable = NULL;
-tAddRequestLobbyListNearValueFilter oAddRequestLobbyListNearValueFilter = NULL;
-tAddRequestLobbyListNumericalFilter oAddRequestLobbyListNumericalFilter = NULL;
-tAddRequestLobbyListResultCountFilter oAddRequestLobbyListResultCountFilter = NULL;
-tAddRequestLobbyListStringFilter oAddRequestLobbyListStringFilter = NULL;
-tCreateLobby oCreateLobby = NULL;
-tGetLobbyByIndex oGetLobbyByIndex = NULL;
-tGetLobbyChatEntry oGetLobbyChatEntry = NULL;
-tGetLobbyData oGetLobbyData = NULL;
-tGetLobbyDataByIndex oGetLobbyDataByIndex = NULL;
-tGetLobbyMemberByIndex oGetLobbyMemberByIndex = NULL;
-tGetLobbyMemberData oGetLobbyMemberData = NULL;
-tGetNumLobbyMembers oGetNumLobbyMembers = NULL;
-tInviteUserToLobby oInviteUserToLobby = NULL;
-tJoinLobby oJoinLobby = NULL;
-tLeaveLobby oLeaveLobby = NULL;
-tRequestLobbyList oRequestLobbyList = NULL;
-tSendLobbyChatMsg oSendLobbyChatMsg = NULL;
-tSetLobbyData oSetLobbyData = NULL;
-tSetLobbyMemberData oSetLobbyMemberData = NULL;
-
-
-//Steam Networking Hooks
-typedef void (__thiscall *tReadP2PPacket)(void*, void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel);
-typedef void (__thiscall *tSendP2PPacket)(void*, UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
-
-void __fastcall hReadP2PPacket(void *This, void *unused, void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel);
-void __fastcall hSendP2PPacket(void *This, void *unused, UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel);
-
-tReadP2PPacket oReadP2PPacket = NULL;
-tSendP2PPacket oSendP2PPacket = NULL;
 
 
 //D3D9 Hooks
@@ -305,128 +164,7 @@ tSetStreamSource oSetStreamSource = NULL;
 tSetTexture oSetTexture = NULL;
 tSetViewport oSetViewport = NULL;
 
-struct sDSGameFunctions
-{
-	DWORD DS_LandHitAddress;
-	DWORD DS_FileToLoad;
-};
-sDSGameFunctions DSGameFunctions;
 
-struct sKernelBaseFunctions
-{
-	DWORD kb_CreateFileWAddress;
-};
-sKernelBaseFunctions KernelBaseFunctions;
-
-
-struct sSteamMatchmakingFunctions
-{
-	DWORD AddRequestLobbyListCompatibleMembersFilterAddress;
-	DWORD AddRequestLobbyListDistanceFilterAddress;
-	DWORD AddRequestLobbyListFilterSlotsAvailableAddress;
-	DWORD AddRequestLobbyListNearValueFilterAddress;
-	DWORD AddRequestLobbyListNumericalFilterAddress;
-	DWORD AddRequestLobbyListResultCountFilterAddress;
-	DWORD AddRequestLobbyListStringFilterAddress;
-	DWORD CreateLobbyAddress;
-	DWORD GetLobbyByIndexAddress;
-	DWORD GetLobbyChatEntryAddress;
-	DWORD GetLobbyDataAddress;
-	DWORD GetLobbyDataByIndexAddress;
-	DWORD GetLobbyMemberByIndexAddress;
-	DWORD GetLobbyMemberDataAddress;
-	DWORD GetNumLobbyMembersAddress;
-	DWORD InviteUserToLobbyAddress;
-	DWORD JoinLobbyAddress;
-	DWORD LeaveLobbyAddress;
-	DWORD RequestLobbyListAddress;
-	DWORD SendLobbyChatMsgAddress;
-	DWORD SetLobbyDataAddress;
-	DWORD SetLobbyMemberDataAddress;
-};
-sSteamMatchmakingFunctions SteamMatchMakingFunctions;
-enum SteamMatchmakingVTable
-{
-	GetFavoriteGameCount, // 0
-	GetFavoriteGame, // 1
-	AddFavoriteGame, // 2
-	RemoveFavoriteGame, // 3
-	RequestLobbyList, // 4
-	AddRequestLobbyListStringFilter, // 5
-	AddRequestLobbyListNumericalFilter, // 6
-	AddRequestLobbyListNearValueFilter, // 7
-	AddRequestLobbyListFilterSlotsAvailable, // 8
-	AddRequestLobbyListDistanceFilter, // 9
-	AddRequestLobbyListResultCountFilter, // 10
-	AddRequestLobbyListCompatibleMembersFilter, // 11
-	GetLobbyByIndex, // 12
-	CreateLobby, // 13
-	JoinLobby, // 14
-	LeaveLobby, // 15
-	InviteUserToLobby, // 16
-	GetNumLobbyMembers, // 17
-	GetLobbyMemberByIndex, // 18
-	GetLobbyData, // 19
-	SetLobbyData, // 20
-	GetLobbyMemberData, // 21
-	SetLobbyMemberData, // 22
-	GetLobbyDataCount, // 23
-	GetLobbyDataByIndex, // 24
-	DeleteLobbyData, // 25
-	SendLobbyChatMsg, // 26
-	GetLobbyChatEntry, // 27
-	RequestLobbyData, // 28
-	SetLobbyGameServer, // 29
-	GetLobbyGameServer, // 30
-	SetLobbyMemberLimit, // 31
-	GetLobbyMemberLimit, // 32
-	SetLobbyVoiceEnabled, // 33
-	RequestFriendsLobbies, // 34
-	SetLobbyType, // 35
-	SetLobbyJoinable, // 36
-	GetLobbyOwner, // 37
-	SetLobbyOwner, // 38
-	SetLinkedLobby, // 39
-	BeginGMSQuery, // 40
-	PollGMSQuery, // 41
-	GetGMSQueryResults, // 42
-	ReleaseGMSQuery, // 43
-	SendGameServerPingSample, // 44
-	EnsureFavoriteGameAccountsUpdated // 45
-};
-
-struct sSteamNetworkingFunctions
-{
-	DWORD SendP2PPacketAddress;
-	DWORD IsP2PPacketAvailableAddress;
-	DWORD ReadP2PPacketAddress;
-};
-sSteamNetworkingFunctions SteamNetworkingFunctions;
-enum SteamNetworkingVTable
-{
-	SendP2PPacket, // 0
-	IsP2PPacketAvailable, // 1
-	ReadP2PPacket, // 2
-	AcceptP2PSessionWithUser, // 3
-	CloseP2PSessionWithUser, // 4
-	CloseP2PChannelWithUser, // 5
-	GetP2PSessionState, // 6
-	AllowP2PPacketRelay, // 7
-	CreateListenSocket, // 8
-	CreateP2PConnectionSocket, // 9 
-	CreateConnectionSocket, // 10
-	DestroySocket, // 11
-	DestroyListenSocket, // 12
-	SendDataOnSocket, // 13
-	IsDataAvailableOnSocket, // 14
-	RetrieveDataFromSocket, // 15
-	IsDataAvailable, // 16
-	RetrieveData, // 17
-	GetSocketInfo, // 18
-	GetListenSocketInfo, // 19
-	GetSocketConnectionType, // 20
-	GetMaxPacketSize // 21
-};
 
 struct sDXFunctions
 {
@@ -578,87 +316,6 @@ enum DXVTable
 	CreateQuery // 118
 };
 
-struct PacketData
-{
-	byte bytes[512];
-};
-struct charPos
-{
-	unsigned int unk1;
-	float facing;				//0x0004
-	BYTE unk2[0x8];
-	float xPos;					//0x0010
-	float yPos;					//0x0014
-	float zPos;					//0x0018
-};
-struct charLocData
-{
-	BYTE unk1[0x1C];
-	charPos *pos;				//0x001C
-};
-struct creatureData2
-{
-	
-};
-struct creatureData1
-{
-	BYTE unk1[0x28];
-	charLocData *loc;			//0x0028
-	BYTE unk2[0xC];
-	wchar_t modelName[0x8];		//0x0038
-	BYTE unk3[0x1C];
-	int NPCID;					//0x0064
-	BYTE unk4[0x8];
-	int PhantomType;			//0x0070
-	int TeamType;				//0x0074
-	BYTE unk5[0x148];
-	float currPoise;			//0x01C0
-	float maxPoise;				//0x01C4
-	BYTE unk5a[0x4];
-	float poiseRecoveryTimer;	//0x01CC
-	BYTE unk6[0x104];
-	int currHP;					//0x02D4
-	int maxHP;					//0x02D8
-	int currMP;					//0x02DC
-	int maxMP;					//0x02E0
-	int currStam;				//0x02E4
-	int maxStam;				//0x02E8
-	BYTE unk8[0x14];
-	int currentPoisonResist;	//0x0300
-	int currentToxicResist;		//0x0304
-	int currentBleedResist;		//0x0308
-	int currentCurseResist;		//0x030C
-	int maxPoisonResist;		//0x0310
-	int maxToxicResist;			//0x0314
-	int maxBleedResist;			//0x0318
-	int maxCurseResist;			//0x031C
-	BYTE unk9[0x28];
-	int talkID;					//0x0348
-	BYTE unk9a[0xC8];
-	creatureData2 *cdata2;		//0x0414
-	BYTE unk10[0x4];
-	int AIID;					//0x041C
-};
-struct areadata
-{
-	BYTE unk1[0xA12];
-	char area;
-	char world;
-	long MPZone;
-	float xpos;
-	float ypos;
-	float zpos;
-};
-
-
-
-struct LoadedCreatures
-{
-	PVOID pUnknown;             // 0x137DC70
-	creatureData1 *firstCreature;    // +4
-	creatureData1 *lastCreature;     // +8
-};
-
 
 wstring replace(wstring str, const wstring from, const wstring to)
 {
@@ -675,340 +332,7 @@ wstring replace(wstring str, const wstring from, const wstring to)
 }
 
 
-void eaxbypass(DsString* file)
-{
-	wchar_t *tmpstr = new wchar_t[260];
-	ZeroMemory(tmpstr, 520);
 
-	tmpstr = file->str;
-
-	wstring newfile(tmpstr);
-		
-	wprintf(L"e:%s\n", newfile);
-	newfile = replace(newfile, L"parts:/", L"game://");
-
-	wprintf(L"e:%s\n", newfile);
-	
-
-	wprintf(L"fs1-%s\n", file->str);
-	memcpy(file->str, newfile.c_str(), newfile.length() * 2);
-	//file->str = tmpstr;
-	wprintf(L"fs2-%s\n", file->str);
-	
-	//wprintf(L"%s, %d\n", newfile.c_str(), newfile.length());
-	//wprintf(L"%s\n", tmpstr);
-
-}
-
-
-
-//In-Game Function Hooks
-void __stdcall hDS_LandHit(UINT *atkChar, float *dmg, UINT unk)
-{
-	UINT *defChar = NULL;
-
-	__asm {
-		mov defChar, eax
-		push eax
-	}
-
-
-	if (!(defChar == lastenemy) && !(defChar == chardata1) && defChar)
-		lastenemy = defChar;
-	
-	
-	creatureData1 *atk = (creatureData1*)atkChar;
-	creatureData1 *def = (creatureData1*)defChar;
-
-
-	for (int i = 0; i < 4; i++)
-	{
-		lastAtk[i] = lastAtk[i + 1];
-		lastDef[i] = lastDef[i + 1];
-		lastDmg[i] = lastDmg[i + 1];
-	}
-	
-
-	if (atkChar && defChar)
-	{
-		lastAtk[4] = *(wstring*)&atk->modelName;
-		lastDef[4] = *(wstring*)&def->modelName;
-		lastDmg[4] = (float)(*dmg);
-	}
-
-
-	__asm {
-		pop eax
-	}
-	oDS_LandHit(atkChar, dmg, unk);
-}
-void __stdcall hDS_FileToLoad(DsString* file, UINT unk)
-{
-	wchar_t *str;
-	__asm {
-		pushad
-		mov ecx, [esp + 0x38]
-		mov ecx, [ecx + 4]
-		mov str, ecx
-	};
-
-	eaxbypass(file);
-
-	//DsString newFile;
-
-
-
-	/*wchar_t *tmpstr = new wchar_t[0x1FF];
-	ZeroMemory(tmpstr, 0x1FF);
-
-	wsprintf(tmpstr, L"c:\\test.txt");
-
-	file->str = tmpstr;
-	*/
-	__asm {
-		popad
-	};
-
-	//oDS_FileToLoad(file, unk);
-	oDS_FileToLoad(file, unk);
-}
-
-
-
-
-
-//KernelBase Hooks
-HRESULT WINAPI hkb_CreateFileW(LPCTSTR *lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
-{
-	wprintf(L"hkb_CreateFileW called. lpFilename = %s\n", lpFileName);
-
-	HRESULT tmp;
-	tmp = okb_CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-	return tmp;
-}
-
-
-
-
-
-//Steam Matchmaking Hooks
-void __fastcall hAddRequestLobbyListCompatibleMembersFilter(void *This, void *notUsed, UINT64 steamIDLobby)
-{
-	printf("hAddRequestLobbyListCompatibleMembersFilter called - steamIDLobby:  %llx\n", steamIDLobby);
-
-	oAddRequestLobbyListCompatibleMembersFilter(This, steamIDLobby);
-}
-void __fastcall hAddRequestLobbyListDistanceFilter(void *This, void *notUsed, UINT eLobbyDistanceFilter)
-{
-	printf("hAddRequestLobbyListDistanceFilter called - eLobbyDistanceFilter:  %d\n", eLobbyDistanceFilter);
-
-	oAddRequestLobbyListDistanceFilter(This, eLobbyDistanceFilter);
-}
-void __fastcall hAddRequestLobbyListFilterSlotsAvailable(void *This, void *notUsed, int nSlotsAvailable)
-{
-	printf("hAddRequestLobbyListFilterSlotsAvailable called - nSlotsAvailable: %d\n", nSlotsAvailable);
-
-	oAddRequestLobbyListFilterSlotsAvailable(This, nSlotsAvailable);
-}
-void __fastcall hAddRequestLobbyListNearValueFilter(void *This, void *notUsed, char *pchKeyToMatch, int nValueToBeCloseTo)
-{
-	printf("hAddRequestLobbyListNearValueFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch, nValueToBeCloseTo);
-
-	oAddRequestLobbyListNearValueFilter(This, pchKeyToMatch, nValueToBeCloseTo);
-}
-void __fastcall hAddRequestLobbyListNumericalFilter(void* This, void *notUsed, char *pchKeyToMatch, int nValueToMatch, UINT eComparisonType)
-{
-	printf("hAddRequestLobbyListNumericalFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch,nValueToMatch);
-
-	oAddRequestLobbyListNumericalFilter(This, pchKeyToMatch, nValueToMatch, eComparisonType);
-}
-void __fastcall hAddRequestLobbyListResultCountFilter(void* This, void *notUsed, int cMaxResults)
-{
-	printf("hAddRequestLobbyListResultCountFilter called - cMaxResults:  %d\n", cMaxResults);
-
-	oAddRequestLobbyListResultCountFilter(This, cMaxResults);
-}
-void __fastcall hAddRequestLobbyListStringFilter(void* This, void *notUsed, char *pchKeyToMatch, char *pchValueToMatch, UINT eComparisonType)
-{
-	printf("hAddRequestLobbyListStringFilter called - Key, Value:  '%s' '%s'.\n", pchKeyToMatch, pchValueToMatch);
-
-	oAddRequestLobbyListStringFilter(This, pchKeyToMatch, pchValueToMatch, eComparisonType);
-}
-SteamAPICall_t __fastcall hCreateLobby(void *This, void *notUsed, UINT eLobbyType, int cMaxMembers)
-{
-	SteamAPICall_t tmp;
-	tmp = oCreateLobby(This, eLobbyType, cMaxMembers);
-
-	printf("hCreateLobby called.  LobbyType: %d, cMaxMembers, SteamAPICall_t: %d\n", eLobbyType, cMaxMembers, tmp);
-
-	return tmp;
-}
-UINT64 __fastcall hGetLobbyByIndex(void* This, void* notUsed, UINT* unknown, int iLobby)
-{
-	//Not sure this one's returning properly
-	//printf("hGetLobbyByIndex called.\n");
-
-	UINT64 tmp = 0;
-	tmp = oGetLobbyByIndex(This, unknown, iLobby);
-
-	printf("hGetLobbyByIndex called - steamIDLobby: %llx\n", tmp);
-
-	return tmp;
-}
-int __fastcall hGetLobbyChatEntry(void *This, void *notUsed, int iChatID, UINT64 *pSteamIDUser, void *pvData, int cubData, UINT *peChatEntryType)
-{
-	printf("hGetLobbyChatEntry called.\n");
-
-	int tmp = 0;
-	tmp = oGetLobbyChatEntry(This, iChatID, pSteamIDUser, pvData, cubData, peChatEntryType);
-	return tmp;
-}
-char* __fastcall hGetLobbyData(void *This, void *notUsed, UINT64 steamIDLobby, char *pchKey)
-{
-	char *tmp;
-	tmp = oGetLobbyData(This, steamIDLobby, pchKey);
-
-	printf("hGetLobbyData called - steamIDLobby, Key, Value:  %llx, %s, %s\n", steamIDLobby, pchKey, tmp);
-	return tmp;
-}
-bool __fastcall hGetLobbyDataByIndex(void *This, void *notUsed, UINT64 steamIDLobby, int iLobbyData, char *pchKey, int cchKeyBufferSize, char *pchValue, int cchValueBufferSize)
-{
-	printf("hGetLobbyDataByIndex called - Key: %s, Value: %s.\n", pchKey, pchValue);
-
-	bool tmp = false;
-	tmp = oGetLobbyDataByIndex(This, steamIDLobby, iLobbyData, pchKey, cchKeyBufferSize, pchValue, cchValueBufferSize);
-	return tmp;
-}
-UINT64 __fastcall hGetLobbyMemberByIndex(void *This, void *notUsed, UINT steamIDLobby, int iMember)
-{
-	UINT64 tmp = 0;
-	tmp = oGetLobbyMemberByIndex(This, steamIDLobby, iMember);
-
-	printf("hGetLobbyMemberByIndex called - iMember:  %llx.\n", tmp);
-
-	return tmp;
-}
-char* __fastcall hGetLobbyMemberData(void *This, void *notUsed, UINT64 steamIDLobby, UINT64 steamIDUser, char *pchKey)
-{
-	
-	char *tmp;
-	tmp = oGetLobbyMemberData(This, steamIDLobby, steamIDUser, pchKey);
-
-	printf("hGetLobbyMemberData called - steamIDLobby, steamIDUser, pchKey:  %llx, %llx, %p\n", steamIDLobby, steamIDUser, pchKey);
-
-	
-	return tmp;
-}
-int __fastcall hGetNumLobbyMembers(void *This, void *notUsed, UINT64 steamIDLobby)
-{
-	int tmp = 0;
-	tmp = oGetNumLobbyMembers(This, steamIDLobby);
-
-	printf("hGetNumLobbyMembers called - steamIDLobby, Members:  %llx, %d\n", steamIDLobby, tmp);
-
-	return tmp;
-}
-void __fastcall hInviteUserToLobby(void *This, void *notUsed, UINT64 steamIDLobby, UINT64 steamIDInvitee)
-{
-	printf("hInviteUserToLobby called - steamIDLobby, steamIDInvitee:  %llx, %llx\n", steamIDLobby, steamIDInvitee);
-
-	oInviteUserToLobby(This, steamIDLobby, steamIDInvitee);
-}
-void __fastcall hJoinLobby(void *This, void *notUsed, UINT64 steamIDLobby)
-{
-	printf("hJoinLobby called.  steamIDLobby:  %llx\n", steamIDLobby);
-
-	oJoinLobby(This, steamIDLobby);
-}
-void __fastcall hLeaveLobby(void* This, void *notUsed, UINT64 steamIDLobby)
-{
-	printf("hLeaveLobby called.  steamIDLobby:  %llx\n", steamIDLobby);
-
-	oLeaveLobby(This, steamIDLobby);
-}
-void __fastcall hRequestLobbyList(void *This, void *notUsed)
-{
-	printf("hRequestLobbyList called.\n");
-		
-	oRequestLobbyList(This);
-}
-void __fastcall hSendLobbyChatMsg(void *This, void *notUsed, UINT64 steamIDLobby, void *pvMsgBody, int cubMsgBody)
-{
-	printf("hSendLobbyChatMsg called - Lobby: %llx, Msg: %s\n", steamIDLobby, pvMsgBody);
-
-	oSendLobbyChatMsg(This, steamIDLobby, pvMsgBody, cubMsgBody);
-}
-bool __fastcall hSetLobbyData(void *This, void *notUsed, UINT64 steamIDLobby, char *pchKey, char *pchValue)
-{
-	bool tmp;
-	tmp = oSetLobbyData(This, steamIDLobby, pchKey, pchValue);
-
-	printf("hSetLobbyData called - steamIDLobby, pchKey, pchValue, return:  %llx, %s, %s, %d\n", steamIDLobby, pchKey, pchValue, tmp);
-
-	return tmp;
-}
-void __fastcall hSetLobbyMemberData(void *This, void *notUsed, UINT64 steamIDLobby, char *pchKey, char *pchValue)
-{
-	printf("hSetLobbyMemberData called - steamIDLobby, pchKey, pchValue:  %llx, %s, %s\n", steamIDLobby, pchKey, pchValue);
-
-	oSetLobbyMemberData(This, steamIDLobby, pchKey, pchValue);
-}
-
-
-
-//Steam Networking Hooks
-void __fastcall hReadP2PPacket(void *This, void *unused, void *pubDest, UINT cubDest, UINT *pcubMsgSize, UINT64 *SteamID, UINT nChannel)
-{
-	//printf("hReadP2PPacket called.\n");
-
-
-	oReadP2PPacket(This, pubDest, cubDest, pcubMsgSize, SteamID, nChannel);
-
-	PacketData* packetData = (PacketData*)pubDest;
-
-	SYSTEMTIME st;
-	GetLocalTime(&st);
-	/*
-	fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
-		<< std::setw(2) << st.wMinute << ':'
-		<< std::setw(2) << st.wSecond << '.'
-		<< std::setw(3) << st.wMilliseconds << ',';
-
-	fout << "In ," << nChannel << ",x,";
-	fout << hex << setfill('0') << setw(16) << *SteamID << ",";
-	fout << dec << setfill('0') << std::setw(4) << cubDest << ",";
-	for (int i = 0; i < cubDest; ++i)
-		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
-	fout << endl;
-	*/
-	//printf("In size, byte #1:  %d, %d\n", cubDest, packetData->bytes[0]);
-}
-void __fastcall hSendP2PPacket(void* This, void* unused, UINT64 SteamID, void *pubData, UINT cubData, UINT eP2PSendType, UINT nChannel)
-{
-	//printf("hSendP2PPacket called.\n");
-	
-	oSendP2PPacket(This, SteamID, pubData, cubData, eP2PSendType, nChannel);
-	
-
-	PacketData* packetData = (PacketData*)pubData;
-
-	SYSTEMTIME st;
-	GetLocalTime(&st);
-	/*
-	fout << dec << setfill('0') << std::setw(2) << st.wHour << ':'
-		<< std::setw(2) << st.wMinute << ':'
-		<< std::setw(2) << st.wSecond << '.'
-		<< std::setw(3) << st.wMilliseconds << ',';
-
-	fout << "Out," << nChannel << "," << eP2PSendType << ",";
-	fout << hex << setfill('0') << setw(16) << SteamID << ",";
-	fout << dec << setfill('0') << std::setw(4) << cubData << ",";
-	for (int i = 0; i < cubData; ++i)
-		fout << hex << setw(2) << (int)packetData->bytes[i] << " ";
-	fout << endl;
-	*/
-	//printf("Out size, byte #1:  %d, %d\n", cubData, packetData->bytes[0]);
-}
 
 
 //D3D9 Hooks
@@ -1073,18 +397,7 @@ HRESULT WINAPI hDrawIndexedPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE
 	//printf("DrawIndexedPrimitive called. Type: %d, BaseVert: %d, MinIndex: %d, NumVert: %d, StartIndex: %d, PrimCount: %d\n", Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
 
 	HRESULT tmp;
-
-	if (wireframe)
-	{
-		pDevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-		tmp = oDrawIndexedPrimitive(pDevice, Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
-		pDevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
-	}
-	else
-	{
-		tmp = oDrawIndexedPrimitive(pDevice, Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
-	}
-
+	tmp = oDrawIndexedPrimitive(pDevice, Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
 	return tmp;
 }
 HRESULT WINAPI hDrawIndexedPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertices, UINT PrimitiveCount, void *pIndexData, D3DFORMAT IndexDataFormat, void *pVertexStreamZeroData, UINT VertexStreamZeroStride) 
@@ -1293,81 +606,6 @@ HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
 
 
 
-void initKernelBaseFunctions()
-{
-	HMODULE kernelBaseHandle;
-	kernelBaseHandle = GetModuleHandle(TEXT("kernelbase.dll"));
-
-	printf("KernelBase.dll = %p\n", kernelBaseHandle);
-
-	KernelBaseFunctions.kb_CreateFileWAddress = (DWORD)kernelBaseHandle + 0xAD800;
-
-}
-
-void initInGameFunctions()
-{
-	DSGameFunctions.DS_FileToLoad = 0x00672CF0;
-	//DSGameFunctions.DS_FileToLoad = 0x006726F0;
-	DSGameFunctions.DS_LandHitAddress = 0x00E6BFE0;
-}
-void initSteamFunctions()
-{
-	HMODULE steamapiHandle;
-	steamapiHandle = GetModuleHandle(TEXT("steam_api.dll"));
-
-	DWORD *SteamNetworking;
-	DWORD *SteamMatchmaking;
-
-
-	__asm {
-		mov eax, steamapiHandle
-			add eax, 0x182ac
-			mov eax, [eax]
-			mov eax, [eax + 4]
-			mov eax, [eax]
-			mov SteamMatchmaking, eax
-	}
-	DWORD *pVTable = (DWORD*)(SteamMatchmaking);
-
-	SteamMatchMakingFunctions.AddRequestLobbyListCompatibleMembersFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListCompatibleMembersFilter];
-	SteamMatchMakingFunctions.AddRequestLobbyListDistanceFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListDistanceFilter];
-	SteamMatchMakingFunctions.AddRequestLobbyListFilterSlotsAvailableAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListFilterSlotsAvailable];
-	SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNearValueFilter];
-	SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListNumericalFilter];
-	SteamMatchMakingFunctions.AddRequestLobbyListResultCountFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListResultCountFilter];
-	SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress = pVTable[SteamMatchmakingVTable::AddRequestLobbyListStringFilter];
-	SteamMatchMakingFunctions.CreateLobbyAddress = pVTable[SteamMatchmakingVTable::CreateLobby];
-	SteamMatchMakingFunctions.GetLobbyByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyByIndex];
-	SteamMatchMakingFunctions.GetLobbyChatEntryAddress = pVTable[SteamMatchmakingVTable::GetLobbyChatEntry];
-	SteamMatchMakingFunctions.GetLobbyDataAddress = pVTable[SteamMatchmakingVTable::GetLobbyData];
-	SteamMatchMakingFunctions.GetLobbyDataByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyDataByIndex];
-	SteamMatchMakingFunctions.GetLobbyMemberByIndexAddress = pVTable[SteamMatchmakingVTable::GetLobbyMemberByIndex];
-	SteamMatchMakingFunctions.GetLobbyMemberDataAddress = pVTable[SteamMatchmakingVTable::GetLobbyMemberData];
-	SteamMatchMakingFunctions.GetNumLobbyMembersAddress = pVTable[SteamMatchmakingVTable::GetNumLobbyMembers];
-	SteamMatchMakingFunctions.InviteUserToLobbyAddress = pVTable[SteamMatchmakingVTable::InviteUserToLobby];
-	SteamMatchMakingFunctions.JoinLobbyAddress = pVTable[SteamMatchmakingVTable::JoinLobby];
-	SteamMatchMakingFunctions.LeaveLobbyAddress = pVTable[SteamMatchmakingVTable::LeaveLobby];
-	SteamMatchMakingFunctions.RequestLobbyListAddress = pVTable[SteamMatchmakingVTable::RequestLobbyList];
-	SteamMatchMakingFunctions.SendLobbyChatMsgAddress = pVTable[SteamMatchmakingVTable::SendLobbyChatMsg];
-	SteamMatchMakingFunctions.SetLobbyDataAddress = pVTable[SteamMatchmakingVTable::SetLobbyData];
-	SteamMatchMakingFunctions.SetLobbyMemberDataAddress = pVTable[SteamMatchmakingVTable::SetLobbyMemberData];
-
-
-
-	__asm {
-		mov eax, steamapiHandle
-			add eax, 0x182bc
-			mov eax, [eax]
-			mov eax, [eax + 4]
-			mov eax, [eax]
-			mov SteamNetworking, eax
-	}
-	pVTable = (DWORD*)(SteamNetworking);
-
-	SteamNetworkingFunctions.ReadP2PPacketAddress = pVTable[SteamNetworkingVTable::ReadP2PPacket];
-	SteamNetworkingFunctions.SendP2PPacketAddress = pVTable[SteamNetworkingVTable::SendP2PPacket];
-
-}
 void initDXFunctions()
 {
 	DWORD* pVTable = (DWORD*)pD3dDevice;
@@ -1414,79 +652,7 @@ DWORD ModuleCheckingThread()
 	if (MH_Initialize() != MH_OK)
 		return -1;
 
-	//In-Game Function Hooks
-	*(PDWORD)&oDS_LandHit = (DWORD)DSGameFunctions.DS_LandHitAddress;
-	InsertHook((void*)DSGameFunctions.DS_LandHitAddress, &hDS_LandHit, &oDS_LandHit);
 
-	*(PDWORD)&oDS_FileToLoad = (DWORD)DSGameFunctions.DS_FileToLoad;
-	//InsertHook((void*)DSGameFunctions.DS_FileToLoad, &hDS_FileToLoad, &oDS_FileToLoad);
-
-
-	//KernelBase Hooks
-	*(PDWORD)&okb_CreateFileW = (DWORD)KernelBaseFunctions.kb_CreateFileWAddress;
-
-	//InsertHook((void*)KernelBaseFunctions.kb_CreateFileWAddress, &hkb_CreateFileW, &okb_CreateFileW);
-
-	//Steam Matchmaking Hooks
-	*(PDWORD)&oAddRequestLobbyListCompatibleMembersFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListCompatibleMembersFilterAddress;
-	*(PDWORD)&oAddRequestLobbyListDistanceFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListDistanceFilterAddress;
-	*(PDWORD)&oAddRequestLobbyListFilterSlotsAvailable = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListFilterSlotsAvailableAddress;
-	*(PDWORD)&oAddRequestLobbyListNearValueFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress;
-	*(PDWORD)&oAddRequestLobbyListNumericalFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress;
-	*(PDWORD)&oAddRequestLobbyListResultCountFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListResultCountFilterAddress;
-	*(PDWORD)&oAddRequestLobbyListStringFilter = (DWORD)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress;
-	*(PDWORD)&oCreateLobby = (DWORD)SteamMatchMakingFunctions.CreateLobbyAddress;
-	*(PDWORD)&oGetLobbyByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyByIndexAddress;
-	*(PDWORD)&oGetLobbyChatEntry = (DWORD)SteamMatchMakingFunctions.GetLobbyChatEntryAddress;
-	*(PDWORD)&oGetLobbyData = (DWORD)SteamMatchMakingFunctions.GetLobbyDataAddress;
-	*(PDWORD)&oGetLobbyDataByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyDataByIndexAddress;
-	*(PDWORD)&oGetLobbyMemberByIndex = (DWORD)SteamMatchMakingFunctions.GetLobbyMemberByIndexAddress;
-	*(PDWORD)&oGetLobbyMemberData = (DWORD)SteamMatchMakingFunctions.GetLobbyMemberDataAddress;
-	*(PDWORD)&oGetNumLobbyMembers = (DWORD)SteamMatchMakingFunctions.GetNumLobbyMembersAddress;
-	*(PDWORD)&oInviteUserToLobby = (DWORD)SteamMatchMakingFunctions.InviteUserToLobbyAddress;
-	*(PDWORD)&oJoinLobby = (DWORD)SteamMatchMakingFunctions.JoinLobbyAddress;
-	*(PDWORD)&oLeaveLobby = (DWORD)SteamMatchMakingFunctions.LeaveLobbyAddress;
-	*(PDWORD)&oRequestLobbyList = (DWORD)SteamMatchMakingFunctions.RequestLobbyListAddress;
-	*(PDWORD)&oSendLobbyChatMsg = (DWORD)SteamMatchMakingFunctions.SendLobbyChatMsgAddress;
-	*(PDWORD)&oSetLobbyData = (DWORD)SteamMatchMakingFunctions.SetLobbyDataAddress;
-	*(PDWORD)&oSetLobbyMemberData = (DWORD)SteamMatchMakingFunctions.SetLobbyMemberDataAddress;
-	
-
-	/*
-	//These need checking, gets and sets can crash
-	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListCompatibleMembersFilterAddress, &hAddRequestLobbyListCompatibleMembersFilter, &oAddRequestLobbyListCompatibleMembersFilter);
-	//InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListDistanceFilterAddress, &hAddRequestLobbyListDistanceFilter, &oAddRequestLobbyListDistanceFilter);
-	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListFilterSlotsAvailableAddress, &hAddRequestLobbyListFilterSlotsAvailable, &oAddRequestLobbyListFilterSlotsAvailable);
-	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListNearValueFilterAddress, &hAddRequestLobbyListNearValueFilter, &oAddRequestLobbyListNearValueFilter);
-	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListNumericalFilterAddress, &hAddRequestLobbyListNumericalFilter, &oAddRequestLobbyListNumericalFilter);
-	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListResultCountFilterAddress, &hAddRequestLobbyListResultCountFilter, &oAddRequestLobbyListResultCountFilter);
-	InsertHook((void*)SteamMatchMakingFunctions.AddRequestLobbyListStringFilterAddress, &hAddRequestLobbyListStringFilter, &oAddRequestLobbyListStringFilter);
-	InsertHook((void*)SteamMatchMakingFunctions.CreateLobbyAddress, &hCreateIndexBuffer, &oCreateIndexBuffer);
-	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyByIndexAddress, &hGetLobbyByIndex, &oGetLobbyByIndex);
-	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyChatEntryAddress, &hGetLobbyChatEntry, &oGetLobbyChatEntry);
-	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyDataAddress, &hGetLobbyData, &oGetLobbyData);
-	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyDataByIndexAddress, &hGetLobbyDataByIndex, &oGetLobbyDataByIndex);
-	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyMemberByIndexAddress, &hGetLobbyMemberByIndex, &oGetLobbyMemberByIndex);
-	InsertHook((void*)SteamMatchMakingFunctions.GetLobbyMemberDataAddress, &hGetLobbyMemberData, &oGetLobbyMemberData);
-	InsertHook((void*)SteamMatchMakingFunctions.GetNumLobbyMembersAddress, &hGetNumLobbyMembers, &oGetNumLobbyMembers);
-	InsertHook((void*)SteamMatchMakingFunctions.InviteUserToLobbyAddress, &hInviteUserToLobby, &oInviteUserToLobby);
-	InsertHook((void*)SteamMatchMakingFunctions.JoinLobbyAddress, &hJoinLobby, &oJoinLobby);
-	InsertHook((void*)SteamMatchMakingFunctions.LeaveLobbyAddress, &hLeaveLobby, &oLeaveLobby);
-	InsertHook((void*)SteamMatchMakingFunctions.RequestLobbyListAddress, &hRequestLobbyList, &oRequestLobbyList);
-	InsertHook((void*)SteamMatchMakingFunctions.SendLobbyChatMsgAddress, &hSendLobbyChatMsg, &oSendLobbyChatMsg);
-	//InsertHook((void*)SteamMatchMakingFunctions.SetLobbyDataAddress, &hSetLobbyData, &oSetLobbyData);
-	//InsertHook((void*)SteamMatchMakingFunctions.SetLobbyMemberDataAddress, &hSetLobbyMemberData, &oSetLobbyMemberData);
-	*/
-
-
-	//Steam Networking Hooks
-	/*
-	*(PDWORD)&oReadP2PPacket = (DWORD)SteamNetworkingFunctions.ReadP2PPacketAddress;
-	*(PDWORD)&oSendP2PPacket = (DWORD)SteamNetworkingFunctions.SendP2PPacketAddress;
-	
-	InsertHook((void*)SteamNetworkingFunctions.ReadP2PPacketAddress, &hReadP2PPacket, &oReadP2PPacket);
-	InsertHook((void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
-	*/
 
 	//D3D9 Hooks
 	*(PDWORD)&oBeginScene = (DWORD)DXFunctions.BeginSceneAddress;
@@ -1563,27 +729,9 @@ bool Initialize_DirectX()
 	Console::Create("My Console");
 
 
-	DWORD dbgchk;
-	dbgchk = 0x00400080;
-
-	__asm {
-		mov eax, dbgchk
-		mov eax, [eax]
-		mov dbgchk, eax
-	}
-
-	if (dbgchk == 0xCE9634B4)
-	{
-		debugEXE = true;
-		pGlobalChainD3Device = 0x13A882C;
-	}
-	else
-	{
-		debugEXE = false;
-		pGlobalChainD3Device = 0x13A466C;
-	}
 
 
+	pGlobalChainD3Device = 0x13A466C;
 
 	pD3dDevice = 0;
 
@@ -1611,33 +759,7 @@ bool Initialize_DirectX()
 	//printf("pD3dDevice: %p\n", pD3dDevice);
 
 
-
-	if (!debugEXE)
-	{
-		DWORD OldProtect = 0;
-		VirtualProtect((LPVOID)0xbe73fe, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
-		VirtualProtect((LPVOID)0xbe719f, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
-		VirtualProtect((LPVOID)0xbe722b, 1, PAGE_EXECUTE_READWRITE, &OldProtect);
-
-
-		__asm {
-			mov eax, 0xBE73FE
-			mov bl, ver
-			mov[eax], bl
-
-			mov eax, 0xBE719F
-			mov[eax], bl
-
-			mov eax, 0xBE722B
-			mov[eax], bl
-		}
-	}
-
-
-
 	initDXFunctions();
-
-
 
 	pD3dDevice->GetViewport(&d3dViewport);
 	printf("d3dDevice.ptr: %x\n", &d3dViewport);
@@ -1738,203 +860,46 @@ float yP(float y)
 }
 
 
+struct gradientBoxes {
+	int xStart;
+	int yStart;
+	int width;
+	int height;
+	D3DCOLOR colStart;
+	D3DCOLOR colEnd;
+
+};
+gradientBoxes gBoxes[10];
+
+struct screenText {
+	wstring text = L"1234567890123456789012345678901234567890";
+	int x;
+	int y;
+	D3DCOLOR color;
+};
+screenText sText[10];
+
 void drawStuff()
 {
-	bool wf = wireframe;
-	//printf("drawstuff called\n");
-	
-	if (wf)
-		wireframe = !wireframe;
-
-	__asm {
-		mov chardata1, 0
-
-		mov eax, 0x137dc70
-		mov eax, [eax]
-		cmp	eax, 0
-		je ptrZero
-
-		mov eax, [eax+4]
-		cmp eax, 0
-		je ptrZero
-
-		mov eax, [eax]
-		cmp eax, 0
-		je ptrZero
-
-		mov chardata1, eax
-
-		ptrZero:
-	}
-	
-	if (showstats && chardata1)
-	{
-		wstring text = L"";
-
-		creatureData1 *self = (creatureData1*)chardata1;
-		creatureData1 *target = (creatureData1*)lastenemy;
-
-		if (self->currHP < 1)
-			lastenemy = NULL;
-		
-
-		//HP
-		text = to_wstring(self->currHP) + L" / " + to_wstring(self->maxHP);
-		DrawScreenText(giFont, text, xP(15), yP(10.75), C_WHITE);
-
-		//Stam
-		text = to_wstring(self->currStam) + L" / " + to_wstring(self->maxStam);
-		DrawScreenText(giFont, text, xP(15), yP(13.75), C_WHITE);
-
-		
-		/*Display 5 last hits
-		for (int i = 0; i < 5; i++)
-		{
-			text = lastAtk[i] + L" hit " + lastDef[i] + L" for " + to_wstring(lastDmg[i]) + L" damage.";
-			DrawScreenText(giFont, text, xP(10), yP(25 + (i*2)), C_WHITE);
-		}
-		*/
-
-		DWORD posdata;
-
-		__asm {
-			mov posdata, 0
-
-			mov eax, 0x137E204
-			mov eax, [eax]
-
-			mov posdata, eax
-		}
 
 
-		if (posdata && chardata1)
-		{
-
-			//DWORD *pVTable = (DWORD*)(SteamMatchmaking);
-			areadata *adata = (areadata*)(posdata);
-			DrawGradientBox(pD3dDevice, xP(87), yP(80), xP(10), yP(9), C_BLACK, C_BLACK);
-
-			/*
-			text = L"World: " + to_wstring(adata->world);
-			DrawScreenText(giFont, text, xP(84), yP(78), C_WHITE);
-
-			text = L"Area:  " + to_wstring(adata->area);
-			DrawScreenText(giFont, text, xP(84), yP(80), C_WHITE);
-
-			text = L"MP Zone:  " + to_wstring(adata->MPZone);
-			DrawScreenText(giFont, text, xP(84), yP(82), C_WHITE);
-			*/
-
-
-			CString fltpos;
-			
-			fltpos.Format(_T("%.1f"), adata->xpos);
-			text = L"X:  " + fltpos;
-			DrawScreenText(giFont, text, xP(88), yP(81), C_WHITE);
-
-			fltpos.Format(_T("%.1f"), adata->ypos);
-			text = L"Y:  " + fltpos;
-			DrawScreenText(giFont, text, xP(88), yP(83), C_WHITE);
-
-			fltpos.Format(_T("%.1f"), adata->zpos);
-			text = L"Z:  " + fltpos;
-			DrawScreenText(giFont, text, xP(88), yP(85), C_WHITE);
-
-			if (adata->world == -1)
-				lastenemy = NULL;
+	for (int i = 0; i < 10; i++) {
+		if (gBoxes[i].height > 0) {
+			DrawGradientBox(pD3dDevice, xP(gBoxes[i].xStart), yP(gBoxes[i].yStart),
+				xP(gBoxes[i].width), yP(gBoxes[i].height), gBoxes[i].colStart, gBoxes[i].colEnd);
 		}
 		
-
-		DWORD statdata;
-
-		__asm {
-			mov statdata, 0
-
-			mov eax, 0x1378700
-			mov eax, [eax]
-
-			mov statdata, eax
-		}
-
-
-		if (statdata)
-		{
-			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(11), yP(8), C_BLACK, C_BLACK);
-			int *clearcount = (int*)(statdata + 0x3C);
-			int *deathcount = (int*)(statdata + 0x5C);
-
-
-
-			text = L"NG+: " + to_wstring(*clearcount);
-			DrawScreenText(giFont, text, xP(4), yP(26), C_WHITE);
-
-			text = L"Deaths: " + to_wstring(*deathcount);
-			DrawScreenText(giFont, text, xP(4), yP(29), C_WHITE);
-
-
-		}
-
-
-		//if (lastenemy)
-		if (false)
-		{
-			DrawGradientBox(pD3dDevice, xP(3), yP(25), xP(12), yP(36), C_BLACK, C_BLACK);
-
-			text = target->modelName;
-			DrawScreenText(giFont, text, xP(4), yP(26), C_WHITE);
-
-			text = L"HP: " + to_wstring(target->currHP) + L" / " + to_wstring(target->maxHP);
-			DrawScreenText(giFont, text, xP(4), yP(28), C_RED);
-			text = L"Stam: " + to_wstring(target->currStam) + L" / " + to_wstring(target->maxStam);
-			DrawScreenText(giFont, text, xP(4), yP(30), C_GREEN);
-			text = L"MP: " + to_wstring(target->currMP) + L" / " + to_wstring(target->maxMP);
-			DrawScreenText(giFont, text, xP(4), yP(32), C_CYAN);
-
-			text = L"TeamType: " + to_wstring(target->TeamType);
-			DrawScreenText(giFont, text, xP(4), yP(36), C_WHITE);
-			
-			text = L"NPC ID: " + to_wstring(target->NPCID);
-			DrawScreenText(giFont, text, xP(4), yP(38), C_WHITE);
-			text = L"Talk ID: " + to_wstring(target->talkID);
-			DrawScreenText(giFont, text, xP(4), yP(40), C_WHITE);
-
-
-
-			text = L"Resists";
-			DrawScreenText(giFont, text, xP(4), yP(44), C_WHITE);
-			text = L"P: " + to_wstring(target->currentPoisonResist);
-			DrawScreenText(giFont, text, xP(4), yP(46), C_VIOLET);
-			text = L"T: " + to_wstring(target->currentToxicResist);
-			DrawScreenText(giFont, text, xP(4), yP(48), C_PURPLE);
-			text = L"B: " + to_wstring(target->currentBleedResist);
-			DrawScreenText(giFont, text, xP(4), yP(50), C_RED);
-			text = L"C: " + to_wstring(target->currentCurseResist);
-			DrawScreenText(giFont, text, xP(4), yP(52), C_DARKGRAY);
-
-			CString fltStr1;
-			CString fltStr2;
-			fltStr1.Format(_T("%.1f"), target->currPoise);
-			fltStr2.Format(_T("%.1f"), target->maxPoise);
-
-			text = L"Poise: " + fltStr1 + L" / " + fltStr2;
-			DrawScreenText(giFont, text, xP(4), yP(56), C_DARKGRAY);
-			fltStr1.Format(_T("%.1f"), target->poiseRecoveryTimer);
-			text = L"Poise recov: " + fltStr1;
-			DrawScreenText(giFont, text, xP(4), yP(58), C_DARKGRAY);
-
-			printf("Memloc: %p\n", lastenemy);
-
-			text = lastAtk[4] + L" hit " + lastDef[4] + L" with an attack power of " + to_wstring(lastDmg[4]);
-			DrawScreenText(giFont, text, xP(2), yP(99.5), C_WHITE);
-		}
-
-
-
 
 	}
 
-	if (wf)
-		wireframe = !wireframe;
+	for (int i = 0; i < 10; i++) {
+		if (sText[i].y > 0) {
+			DrawScreenText(giFont, sText[i].text, sText[i].x, sText[i].y, sText[i].color);
+		}
+	}
+
+
+
 }
 
 
@@ -1970,16 +935,12 @@ void Initialize()
 	HANDLE hDarkSouls = GetModuleHandleA("DarkSouls.exe");
 
 	if (!hDarkSouls)
-	{	
+	{
 		printf("ERROR: Getting handle to darksouls.exe\n");
 		return;
 	}
 
 	printf("Handle: %p\n", hDarkSouls);
-
-	initKernelBaseFunctions();
-	initInGameFunctions();
-	initSteamFunctions();
 
 	Initialize_DirectX();
 	CreateDefaultFont();
@@ -1990,11 +951,25 @@ void Initialize()
 	_beginthread(&hotkeyThread, 0, 0);
 
 
-	printf("%p, %p, %p\n", (void*)SteamNetworkingFunctions.SendP2PPacketAddress, &hSendP2PPacket, &oSendP2PPacket);
-	printf("Read:  %X\n", SteamNetworkingFunctions.ReadP2PPacketAddress);
-	printf("Send:  %X\n", SteamNetworkingFunctions.SendP2PPacketAddress);
-	
 	printf("SetStream:  %p\n", hSetStreamSource);
+
+
+
+
+	printf("gBoxes:  %p\n", &gBoxes[0]);
+	gBoxes[0] = { 87, 80, 10, 9, C_BLACK, C_BLACK };
+	gBoxes[1] = { 17, 10, 10, 9, C_BLACK, C_BLACK };
+
+
+	printf("sText:  %p\n", &sText[0]);
+	//sText[0] = { L"1234567890123456789012345678901234567890", 10, 5, C_WHITE };
+	sText[0].text = L"Test1";
+	sText[0].y = 5;
+	sText[0].color = C_WHITE;
+
+	sText[1].text = L"Test2";
+	sText[1].y = 15;
+	sText[1].color = C_WHITE;
 }
 void Cleanup()
 {
@@ -2005,14 +980,8 @@ void Run()
 {
 	bRunning = true;
 
-
-
-
 	while (bRunning)
 	{		
-
-		
-
 		Sleep(33);
 	}
 }
@@ -2136,8 +1105,6 @@ DLLEXPORT void __cdecl hotkeyThread(void*)
 				if (hk_Num2_Pressed == false) 
 				{
 					hk_Num2_Pressed = true;
-					wireframe = !wireframe;
-
 				}
 					
 			}
@@ -2222,8 +1189,6 @@ DLLEXPORT void __cdecl hotkeyThread(void*)
 				if (hk_NumpadPlus_Pressed == false)
 				{
 					hk_NumpadPlus_Pressed = true;
-					showstats = !showstats;
-
 				}
 			}
 			else
