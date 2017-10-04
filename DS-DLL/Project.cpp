@@ -1038,18 +1038,19 @@ HRESULT WINAPI hCreateIndexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD 
 }
 HRESULT WINAPI hCreateRenderTarget(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle)
 {
-	//printf("CreateRenderTarget called.\n");
+	//printf("CreateRenderTarget called - w: %d, h: %d, ppSurface: %p\n", Width, Height, ppSurface);
 
 	HRESULT tmp;
 	tmp = oCreateRenderTarget(pDevice, Width, Height, Format, MultiSample, MultisampleQuality, Lockable, ppSurface, pSharedHandle);
 	return tmp;
 }
-HRESULT WINAPI hCreateTexture(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHAndle)
+HRESULT WINAPI hCreateTexture(LPDIRECT3DDEVICE9 pDevice, UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHandle)
 {
-	//printf("CreateTexture called.  ppTexture:  %p\n", ppTexture);
+	//printf("CreateTexture called.  oCreateTexture:  %p, ppTexture:  %p\n", oCreateTexture, ppTexture);
+
 
 	HRESULT tmp;
-	tmp = oCreateTexture(pDevice, Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHAndle);
+	tmp = oCreateTexture(pDevice, Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
 	return tmp;
 }
 HRESULT WINAPI hCreateVertexBuffer(LPDIRECT3DDEVICE9 pDevice, UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9 **ppVertexBuffer, HANDLE *pSharedHandle)
@@ -1070,7 +1071,10 @@ HRESULT WINAPI hCreateVertexShader(LPDIRECT3DDEVICE9 pDevice, DWORD *pFunction, 
 }
 HRESULT WINAPI hDrawIndexedPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE Type, INT BaseVertexIndex, UINT MinIndex, UINT NumVertices, UINT StartIndex, UINT PrimitiveCount)
 {
+
+
 	//printf("DrawIndexedPrimitive called. Type: %d, BaseVert: %d, MinIndex: %d, NumVert: %d, StartIndex: %d, PrimCount: %d\n", Type, BaseVertexIndex, MinIndex, NumVertices, StartIndex, PrimitiveCount);
+
 
 	HRESULT tmp;
 
@@ -1089,7 +1093,9 @@ HRESULT WINAPI hDrawIndexedPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE
 }
 HRESULT WINAPI hDrawIndexedPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertices, UINT PrimitiveCount, void *pIndexData, D3DFORMAT IndexDataFormat, void *pVertexStreamZeroData, UINT VertexStreamZeroStride) 
 {
-	//printf("DrawIndexedPrimitiveUP called.\n");
+	//printf("DrawIndexedPrimitiveUp called - pType: %d, minVertexIndex: %d, numVertices: %d\n", PrimitiveType, MinVertexIndex, NumVertices);
+
+	
 	
 	HRESULT tmp;
 	tmp = oDrawIndexedPrimitiveUP(pDevice, PrimitiveType, MinVertexIndex, NumVertices, PrimitiveCount, pIndexData, IndexDataFormat, pVertexStreamZeroData, VertexStreamZeroStride);
@@ -1097,7 +1103,7 @@ HRESULT WINAPI hDrawIndexedPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETY
 }
 HRESULT WINAPI hDrawPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE primitiveType, UINT startVertex, UINT primitiveCount)
 {
-	//printf("DrawPrimitive called.\n");
+	//printf("DrawPrimitive called - pType: %d, startVertex: %d, pCount: %d\n", primitiveType, startVertex, primitiveCount);
 
 	HRESULT tmp;
 	tmp = oDrawPrimitive(pDevice, primitiveType, startVertex, primitiveCount);
@@ -1105,7 +1111,8 @@ HRESULT WINAPI hDrawPrimitive(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE primit
 }
 HRESULT WINAPI hDrawPrimitiveUP(LPDIRECT3DDEVICE9 pDevice, D3DPRIMITIVETYPE primitiveType, UINT primitiveCount, void *pVertexStreamZeroData, UINT VertexStreamZeroStride)
 {
-	//printf("DrawPrimitiveUP called.\n");
+	//printf("DrawPrimitiveUP called - pType: %d\n", primitiveType);
+
 
 	HRESULT tmp;
 	tmp = oDrawPrimitiveUP(pDevice, primitiveType, primitiveCount, pVertexStreamZeroData, VertexStreamZeroStride);
@@ -1172,9 +1179,9 @@ HRESULT WINAPI hReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS *pPresent
 
 
 	HRESULT hReturn = oReset(pDevice, pPresentationParameters);
-	if (hReturn == D3D_OK && gFont)
+	//if (hReturn == D3D_OK && gFont)
 		gFont->OnResetDevice();
-	if (hReturn == D3D_OK && giFont)
+	//if (hReturn == D3D_OK && giFont)
 		giFont->OnResetDevice();
 
 	gFont = NULL;
@@ -1195,7 +1202,7 @@ HRESULT WINAPI hSetLight(LPDIRECT3DDEVICE9 pDevice, DWORD Index, D3DLIGHT9 *pLig
 }
 HRESULT WINAPI hSetMaterial(LPDIRECT3DDEVICE9 pDevice, D3DMATERIAL9 *pMaterial)
 {
-	//print("hSetMaterial called.\n");
+	//printf("hSetMaterial called - pMaterial:  %p\n", pMaterial);
 
 	HRESULT tmp;
 	tmp = oSetMaterial(pDevice, pMaterial);
@@ -1206,7 +1213,7 @@ HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pSt
 	//printf("hSetRenderState() called.\n");
 
 	if (pState == D3DRS_ALPHABLENDENABLE) {
-		//printf("pState: %d\n", pState);
+		//printf("pState: %d, value: %d\n", pState, value);
 		//value = 0;
 	}
 
@@ -1216,8 +1223,8 @@ HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pSt
 	}
 
 	if (pState == D3DRS_COLORWRITEENABLE) {
-		//printf("pState: %d\n", pState);
-		//value = 8;
+		//printf("pState: %x, value: %d\n", pState, value);
+		//if (value == 8) { value = 0; }
 	}
 
 	if (pState == D3DRS_CULLMODE) {
@@ -1231,6 +1238,7 @@ HRESULT WINAPI hSetRenderState(LPDIRECT3DDEVICE9 pDevice, D3DRENDERSTATETYPE pSt
 
 	if (pState == D3DRS_FILLMODE) {
 		//printf("pState: %d\n", pState);
+		//value = 0;
 	}
 
 	if (pState == D3DRS_FOGENABLE) {
@@ -1278,13 +1286,14 @@ HRESULT WINAPI hSetTexture(LPDIRECT3DDEVICE9 pDevice, DWORD Sampler, IDirect3DBa
 {
 	//printf("hSetTexture() called.  %d, %p\n", Sampler, &pTexture);
 
+
 	HRESULT tmp;
 	tmp = oSetTexture(pDevice, Sampler, pTexture);
 	return tmp;
 }
 HRESULT WINAPI hSetViewport(LPDIRECT3DDEVICE9 pDevice, D3DVIEWPORT9 *pViewport)
 {
-	//printf("SetViewport called.\n");
+	//printf("SetViewport called - %p\n", pViewport);
 
 	HRESULT tmp;
 	tmp = oSetViewport(pDevice, pViewport);
@@ -1659,7 +1668,7 @@ bool CreateDefaultFont()
 
 		if (HRESULT fontCreateResult = D3DXCreateFont(pD3dDevice, fontSize, 0, FW_NORMAL, 1, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas", &gFont) != S_OK)
 		{
-			printf("Problem creating Font: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
+			printf("Problem creating gFont: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
 			return false;
 		}
 		//printf("\tCreated gFont: %p\n", gFont);
@@ -1676,7 +1685,7 @@ bool CreateDefaultFont()
 
 		if (HRESULT fontCreateResult = D3DXCreateFont(pD3dDevice, (fontSize + 2), 0, FW_BOLD, 1, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas", &giFont) != S_OK)
 		{
-			printf("Problem creating Font: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
+			printf("Problem creating giFont: Result = %lu  -  %08X\n", fontCreateResult, fontCreateResult);
 			return false;
 		}
 		//printf("\tCreated giFont: %p\n", giFont);
