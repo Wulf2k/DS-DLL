@@ -961,6 +961,24 @@ void Initialize()
 	gBoxes[1] = { 17, 10, 10, 9, C_BLACK, C_BLACK };
 
 
+
+
+	_asm {
+		push eax
+		push ebx
+		
+		lea eax,sText
+		mov ebx, 0x400400
+		mov [ebx], eax
+		
+		lea eax, gBoxes
+		mov ebx, 0x400404
+		mov [ebx], eax
+
+		pop ebx
+		pop eax
+	}
+
 	printf("sText:  %p\n", &sText[0]);
 	//sText[0] = { L"1234567890123456789012345678901234567890", 10, 5, C_WHITE };
 	sText[0].text = L"Test1";
